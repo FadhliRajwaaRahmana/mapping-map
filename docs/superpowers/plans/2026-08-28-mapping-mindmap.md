@@ -402,10 +402,10 @@ function readEnv(): Env {
     throw new Error(`Missing required env vars: ${missing.join(", ")}`);
   }
   return {
-    DATABASE_URL: process.env.DATABASE_URL ?? "file:./local.db",
-    DATABASE_AUTH_TOKEN: process.env.DATABASE_AUTH_TOKEN,
-    AUTH_SECRET: process.env.AUTH_SECRET ?? "",
-    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+    DATABASE_URL: process.env.DATABASE_URL || "file:./local.db",
+    DATABASE_AUTH_TOKEN: process.env.DATABASE_AUTH_TOKEN || undefined,
+    AUTH_SECRET: process.env.AUTH_SECRET || "",
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
     RESEND_API_KEY: process.env.RESEND_API_KEY,
   };
 }
@@ -497,10 +497,13 @@ import { drizzle } from "drizzle-orm/libsql";
 import { env } from "./env";
 import * as schema from "./schema";
 
-const client = createClient({
+// globalThis guard so Next dev HMR doesn't leak libsql handles on each reload.
+const g = globalThis as unknown as { __libsqlClient?: ReturnType<typeof createClient> };
+const client = g.__libsqlClient ?? createClient({
   url: env.DATABASE_URL,
   authToken: env.DATABASE_AUTH_TOKEN,
 });
+if (process.env.NODE_ENV !== "production") g.__libsqlClient = client;
 
 export const db = drizzle(client, { schema });
 ```
@@ -904,7 +907,6 @@ export default function LoginPage() {
 ```
 `app/(auth)/reset-password/page.tsx` (disabled until Resend is configured — per spec, reset link is hidden in MVP; this page handles the `?token=` case and shows a friendly message otherwise):
 ```tsx
-import { searchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
