@@ -376,7 +376,7 @@ export const sessionRelations = relations(session, ({ one }) => ({
 }));
 
 export const accountRelations = relations(account, ({ one }) => ({
-  user: one(account, { fields: [account.userId], references: [user.id] }),
+  user: one(user, { fields: [account.userId], references: [user.id] }),
 }));
 ```
 > **Correction:** better-auth 1.7 added a NOT NULL `account.issuer` column (credential accounts use `local:credential`). Fresh DBs are fine; the generator output above already includes it.
