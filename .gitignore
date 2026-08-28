@@ -41,6 +41,5 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-.env
+# local libSQL databases
 *.db
-e2e.db
