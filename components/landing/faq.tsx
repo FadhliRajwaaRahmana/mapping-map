@@ -2,10 +2,7 @@
 
 import { useRef } from "react";
 import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
-
-gsap.registerPlugin(ScrollTrigger);
 
 const QA = [
   { q: "Apakah gratis selamanya?", a: "Ya. Paket Gratis mencakup 3 peta aktif dan semua fitur inti. Upgrade hanya jika butuh peta tak terbatas atau fitur tim." },

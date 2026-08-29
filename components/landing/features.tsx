@@ -4,11 +4,8 @@ import { useRef } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
 import { motion } from "framer-motion";
-
-gsap.registerPlugin(ScrollTrigger);
 
 const FEATURES = [
   {

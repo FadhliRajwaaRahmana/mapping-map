@@ -3,11 +3,8 @@
 import { useRef } from "react";
 import Link from "next/link";
 import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
 import { DemoCanvas } from "./demo-canvas";
-
-gsap.registerPlugin(ScrollTrigger);
 
 export function DemoSection() {
   const ref = useRef<HTMLElement>(null);

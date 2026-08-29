@@ -65,8 +65,8 @@ export const mapFiles = sqliteTable(
 export const presence = sqliteTable(
   "presence",
   {
-    mapId: text("mapId").notNull(),
-    userId: text("userId").notNull(),
+    mapId: text("mapId").notNull().references(() => maps.id, { onDelete: "cascade" }),
+    userId: text("userId").notNull().references(() => user.id, { onDelete: "cascade" }),
     lastSeen: integer("lastSeen", { mode: "timestamp_ms" }).notNull(),
   },
   (t) => [primaryKey({ columns: [t.mapId, t.userId] })],

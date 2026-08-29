@@ -2,10 +2,7 @@
 
 import { useRef } from "react";
 import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
-
-gsap.registerPlugin(ScrollTrigger);
 
 const LOGOS = ["Nusantara Labs", "KataKita", "Ruang Ide", "PetaKarya", "Sinar Digital"];
 

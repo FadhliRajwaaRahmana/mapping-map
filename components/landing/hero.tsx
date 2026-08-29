@@ -6,10 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { DemoCanvas } from "./demo-canvas";
 import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
-
-gsap.registerPlugin(ScrollTrigger);
 
 export function Hero() {
   const sectionRef = useRef<HTMLElement>(null);
