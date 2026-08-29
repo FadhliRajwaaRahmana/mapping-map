@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -13,8 +13,13 @@ const NAV = [
 export function AdminSidebar({ userName, userEmail }: { userName: string; userEmail: string }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-
   const isActive = (href: string, exact?: boolean) => (exact ? pathname === href : pathname.startsWith(href));
+
+  useEffect(() => {
+    if (open) document.body.style.overflow = "hidden";
+    else document.body.style.overflow = "";
+    return () => { document.body.style.overflow = ""; };
+  }, [open]);
 
   const navContent = (
     <nav className="flex flex-col gap-1 p-3">
@@ -31,14 +36,14 @@ export function AdminSidebar({ userName, userEmail }: { userName: string; userEm
       ))}
       <div className="mt-4 border-t-2 border-foreground/10 pt-4">
         <p className="px-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">Akun</p>
-        <p className="mt-1 px-3 text-sm font-semibold">{userName}</p>
-        <p className="px-3 text-xs text-muted-foreground">{userEmail}</p>
+        <p className="mt-1 truncate px-3 text-sm font-semibold">{userName}</p>
+        <p className="truncate px-3 text-xs text-muted-foreground">{userEmail}</p>
       </div>
       <div className="mt-4 flex flex-col gap-2">
         <Link
           href="/maps"
           onClick={() => setOpen(false)}
-          className="flex items-center justify-center gap-1.5 rounded-lg border-2 border-foreground bg-card px-3 py-2 text-sm font-bold shadow-brutal-sm"
+          className="flex items-center justify-center gap-1.5 rounded-lg border-2 border-foreground bg-card px-3 py-2.5 text-sm font-bold shadow-brutal-sm transition-all hover:translate-x-[-1px] hover:translate-y-[-1px]"
         >
           ← Kembali ke App
         </Link>
@@ -47,7 +52,7 @@ export function AdminSidebar({ userName, userEmail }: { userName: string; userEm
             await fetch("/api/auth/sign-out", { method: "POST", credentials: "include" });
             window.location.href = "/login";
           }}
-          className="flex items-center justify-center gap-1.5 rounded-lg border-2 border-destructive bg-destructive px-3 py-2 text-sm font-bold text-destructive-foreground shadow-brutal-sm"
+          className="flex items-center justify-center gap-1.5 rounded-lg border-2 border-destructive bg-destructive px-3 py-2.5 text-sm font-bold text-destructive-foreground shadow-brutal-sm"
         >
           Keluar
         </button>
@@ -57,26 +62,33 @@ export function AdminSidebar({ userName, userEmail }: { userName: string; userEm
 
   return (
     <>
-      {/* Mobile hamburger — positioned below admin topbar (top-14) so it doesn't overlap */}
-      <button
-        onClick={() => setOpen(!open)}
-        className="fixed left-3 top-[3.75rem] z-50 flex h-9 w-9 items-center justify-center rounded-lg border-2 border-foreground bg-card shadow-brutal-sm md:hidden"
-        aria-label="Toggle menu"
-      >
-        <span className="text-lg">{open ? "✕" : "☰"}</span>
-      </button>
+      {/* Mobile top bar — hamburger + title, sticky below the global header */}
+      <div className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b-2 border-foreground bg-card px-3 md:hidden">
+        <button
+          onClick={() => setOpen(!open)}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border-2 border-foreground bg-card shadow-brutal-sm"
+          aria-label="Toggle menu"
+        >
+          <span className="text-lg leading-none">{open ? "✕" : "☰"}</span>
+        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md border-2 border-foreground bg-primary text-xs font-bold text-primary-foreground">M</div>
+          <span className="font-heading text-sm font-bold">Admin Panel</span>
+        </div>
+        <span className="ml-auto rounded-full bg-destructive px-2 py-0.5 text-[10px] font-bold text-destructive-foreground">ADMIN</span>
+      </div>
 
       {/* Mobile drawer */}
       {open && (
-        <div className="fixed inset-0 z-40 md:hidden">
+        <div className="fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-foreground/20 backdrop-blur-sm" onClick={() => setOpen(false)} />
-          <div className="absolute inset-y-0 left-0 w-64 border-r-2 border-foreground bg-card shadow-brutal-lg">
-            <div className="flex h-14 items-center gap-2 border-b-2 border-foreground px-4">
+          <div className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col border-r-2 border-foreground bg-card shadow-brutal-lg">
+            <div className="flex h-14 shrink-0 items-center gap-2 border-b-2 border-foreground px-4">
               <div className="flex h-7 w-7 items-center justify-center rounded-md border-2 border-foreground bg-primary text-xs font-bold text-primary-foreground">M</div>
               <span className="font-heading text-sm font-bold">Admin Panel</span>
-              <button onClick={() => setOpen(false)} className="ml-auto rounded-md p-1 hover:bg-muted">✕</button>
+              <button onClick={() => setOpen(false)} className="ml-auto flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted">✕</button>
             </div>
-            {navContent}
+            <div className="flex-1 overflow-y-auto">{navContent}</div>
           </div>
         </div>
       )}
@@ -88,8 +100,8 @@ export function AdminSidebar({ userName, userEmail }: { userName: string; userEm
           <span className="font-heading text-sm font-bold">Admin Panel</span>
           <span className="ml-auto rounded-full bg-destructive px-2 py-0.5 text-[10px] font-bold text-destructive-foreground">ADMIN</span>
         </div>
-        {navContent}
-        <div className="mt-auto border-t-2 border-foreground/10 p-3">
+        <div className="flex-1 overflow-y-auto">{navContent}</div>
+        <div className="border-t-2 border-foreground/10 p-3">
           <Link href="/" className="flex items-center gap-2 rounded-lg border-2 border-foreground/20 px-3 py-2 text-xs font-semibold hover:border-foreground">
             ← Landing
           </Link>

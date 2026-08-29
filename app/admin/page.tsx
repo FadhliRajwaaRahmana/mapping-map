@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { user, maps } from "@/lib/schema";
-import { count, sql, desc, inArray } from "drizzle-orm";
+import { count, eq, desc, inArray } from "drizzle-orm";
 import { StatCard } from "@/components/admin/stat-card";
 
 export const dynamic = "force-dynamic";
@@ -10,8 +10,8 @@ export default async function AdminDashboard() {
   const [totalUsers, totalMaps, publicMaps, bannedUsers] = await Promise.all([
     db.select({ value: count() }).from(user).then((r) => r[0].value),
     db.select({ value: count() }).from(maps).then((r) => r[0].value),
-    db.select({ value: count() }).from(maps).where(sql`${maps.visibility} = 'public'`).then((r) => r[0].value),
-    db.select({ value: count() }).from(user).where(sql`${user.banned} = 1`).then((r) => r[0].value),
+    db.select({ value: count() }).from(maps).where(eq(maps.visibility, "public")).then((r) => r[0].value),
+    db.select({ value: count() }).from(user).where(eq(user.banned, true as unknown as boolean)).then((r) => r[0].value),
   ]);
 
   const recentUsers = await db
