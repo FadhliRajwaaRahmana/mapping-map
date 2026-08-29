@@ -1,3 +1,4 @@
+import { requireUser } from "@/lib/guards";
 import { Navbar } from "@/components/landing/navbar";
 import { Hero } from "@/components/landing/hero";
 import { Logos } from "@/components/landing/logos";
@@ -10,12 +11,14 @@ import { Faq } from "@/components/landing/faq";
 import { FinalCta } from "@/components/landing/final-cta";
 import { LandingFooter } from "@/components/landing/landing-footer";
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const user = await requireUser();
+
   return (
     <>
-      <Navbar />
+      <Navbar isLoggedIn={!!user} userName={user?.name ?? null} />
       <main className="flex-1 pb-20 md:pb-0">
-        <Hero />
+        <Hero isLoggedIn={!!user} />
         <Logos />
         <Features />
         <HowItWorks />
@@ -23,8 +26,8 @@ export default function LandingPage() {
         <Testimonials />
         <OpenSource />
         <Faq />
-        <FinalCta />
-        <LandingFooter />
+        <FinalCta isLoggedIn={!!user} />
+        <LandingFooter isLoggedIn={!!user} />
       </main>
     </>
   );

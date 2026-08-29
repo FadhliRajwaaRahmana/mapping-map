@@ -5,14 +5,20 @@ import Link from "next/link";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 
-export function LandingFooter() {
+export function LandingFooter({ isLoggedIn = false }: { isLoggedIn?: boolean }) {
   const footerRef = useRef<HTMLElement>(null);
-  useGSAP(() => {
-    gsap.from(".footer-content", {
-      y: 30, opacity: 0, duration: 0.6, ease: "power2.out",
-      scrollTrigger: { trigger: footerRef.current, start: "top 95%", once: true },
-    });
-  }, { scope: footerRef });
+  useGSAP(
+    () => {
+      gsap.from(".footer-content", {
+        y: 30,
+        opacity: 0,
+        duration: 0.6,
+        ease: "power2.out",
+        scrollTrigger: { trigger: footerRef.current, start: "top 95%", once: true },
+      });
+    },
+    { scope: footerRef },
+  );
 
   return (
     <footer ref={footerRef} className="border-t-2 border-foreground bg-card">
@@ -36,9 +42,15 @@ export function LandingFooter() {
           <div>
             <p className="mb-3 text-sm font-bold">Akun</p>
             <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
-              <Link href="/register" className="hover:text-foreground">Daftar</Link>
-              <Link href="/login" className="hover:text-foreground">Masuk</Link>
-              <Link href="/maps" className="hover:text-foreground">Dashboard</Link>
+              {isLoggedIn ? (
+                <Link href="/maps" className="font-semibold text-primary hover:text-primary/80">Dashboard →</Link>
+              ) : (
+                <>
+                  <Link href="/register" className="hover:text-foreground">Daftar</Link>
+                  <Link href="/login" className="hover:text-foreground">Masuk</Link>
+                </>
+              )}
+              {!isLoggedIn && <Link href="/maps" className="hover:text-foreground">Dashboard</Link>}
             </nav>
           </div>
           <div>
