@@ -53,13 +53,13 @@ export default async function AdminDashboard() {
             {recentUsers.map((u) => (
               <Link key={u.id} href={`/admin/users/${u.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-foreground bg-primary text-xs font-bold text-primary-foreground">
-                  {u.name.slice(0, 1).toUpperCase()}
+                  {(u.name ?? "?").slice(0, 1).toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold">{u.name}</p>
                   <p className="truncate text-xs text-muted-foreground">{u.email}</p>
                 </div>
-                <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${u.role === "superadmin" ? "bg-destructive text-destructive-foreground" : "bg-muted text-muted-foreground"}`}>{u.role}</span>
+                <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${u.role === "superadmin" ? "bg-destructive text-destructive-foreground" : "bg-muted text-muted-foreground"}`}>{u.role ?? "user"}</span>
                 {u.banned && <span className="rounded-full bg-destructive px-2 py-0.5 text-xs font-bold text-destructive-foreground">BANNED</span>}
               </Link>
             ))}
@@ -79,7 +79,7 @@ export default async function AdminDashboard() {
               <Link key={m.id} href={`/maps/${m.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50">
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold">{m.title}</p>
-                  <p className="truncate text-xs text-muted-foreground">oleh {ownerById.get(m.ownerId) ?? m.ownerId.slice(0, 8)}</p>
+                  <p className="truncate text-xs text-muted-foreground">oleh {ownerById.get(m.ownerId) ?? (m.ownerId ?? "").slice(0, 8)}</p>
                 </div>
                 <span className={`rounded-full border px-2 py-0.5 text-xs font-bold ${m.visibility === "public" ? "border-primary bg-primary/10 text-primary" : "border-foreground/20 bg-muted text-muted-foreground"}`}>{m.visibility}</span>
               </Link>

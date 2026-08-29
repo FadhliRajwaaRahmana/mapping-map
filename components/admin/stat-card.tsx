@@ -5,12 +5,14 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
 
-gsap.registerPlugin(ScrollTrigger);
+if (typeof window !== "undefined") gsap.registerPlugin(ScrollTrigger);
+
 
 export function StatCard({ label, value, icon, accent }: { label: string; value: number | string; icon: React.ReactNode; accent?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   useGSAP(
     () => {
+      if (!ref.current) return;
       gsap.from(ref.current, {
         y: 20,
         opacity: 0,

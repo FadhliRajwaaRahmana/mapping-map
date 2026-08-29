@@ -97,12 +97,12 @@ export function UserTable() {
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-2">
                       <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-foreground bg-primary text-xs font-bold text-primary-foreground">
-                        {u.name.slice(0, 1).toUpperCase()}
+                        {(u.name ?? "?").slice(0, 1).toUpperCase()}
                       </div>
                       <span className={`font-semibold ${u.banned ? "line-through opacity-60" : ""}`}>{u.name}</span>
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-muted-foreground">{u.email}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{u.email ?? "-"}</td>
                   <td className="px-3 py-2"><Badge variant={u.role === "superadmin" ? "destructive" : "secondary"} className="text-xs">{u.role}</Badge></td>
                   <td className="px-3 py-2">{u.banned ? <Badge variant="destructive" className="text-xs">BANNED</Badge> : <Badge variant="outline" className="text-xs">Aktif</Badge>}</td>
                   <td className="px-3 py-2 text-xs text-muted-foreground">{new Date(u.createdAt).toLocaleDateString("id-ID")}</td>
@@ -122,10 +122,10 @@ export function UserTable() {
         {rows.map((u) => (
           <Link key={u.id} href={`/admin/users/${u.id}`} className={`rounded-lg border-2 bg-card p-4 shadow-brutal-sm ${u.banned ? "border-destructive/50 bg-destructive/5" : "border-foreground"}`}>
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-foreground bg-primary text-xs font-bold text-primary-foreground">{u.name.slice(0, 1).toUpperCase()}</div>
+              <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-foreground bg-primary text-xs font-bold text-primary-foreground">{(u.name ?? "?").slice(0, 1).toUpperCase()}</div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold">{u.name}</p>
-                <p className="truncate text-xs text-muted-foreground">{u.email}</p>
+                <p className="truncate text-xs text-muted-foreground">{u.email ?? "-"}</p>
               </div>
               <Badge variant={u.role === "superadmin" ? "destructive" : "secondary"} className="text-xs">{u.role}</Badge>
             </div>
