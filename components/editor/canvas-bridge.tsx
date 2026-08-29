@@ -93,7 +93,8 @@ export function CanvasBridge({
               label: { text: title, fontSize: 20 },
             },
           ]);
-          const elementId = created[0]?.id ?? "";
+          const container = created.find((e) => e.type === "rectangle");
+          const elementId = container?.id ?? created[0]?.id ?? "";
           a.updateScene({
             elements: [...a.getSceneElements(), ...created],
             captureUpdate: CaptureUpdateAction.IMMEDIATELY,
@@ -104,6 +105,7 @@ export function CanvasBridge({
           const a = apiRef.current;
           if (!a) return null;
           const nodeId = newId();
+          const newNodeElementId = newId();
           const allowed = new Set(["rectangle", "ellipse", "diamond"]);
           const nodeType = (allowed.has(shape as string) ? shape : "rectangle") as NodeShape;
           const elsAll = a.getSceneElements() as unknown as {
@@ -124,7 +126,7 @@ export function CanvasBridge({
                 (e) => e.type === "rectangle" || e.type === "ellipse" || e.type === "diamond",
               ).length;
               const row = siblings % 3;
-              x = target.x + target.width + 40;
+              x = target.x + target.width + 50;
               y = target.y + row * 110 - 55;
             } else {
               const st = a.getAppState();
@@ -137,7 +139,7 @@ export function CanvasBridge({
             );
             const last = rects[rects.length - 1];
             if (last) {
-              x = last.x + last.width + 40;
+              x = last.x + last.width + 50;
               y = last.y;
             } else {
               const st = a.getAppState();
@@ -150,8 +152,11 @@ export function CanvasBridge({
             y = -st.scrollY + st.height / 2 - 40;
           }
           const nodeW = nodeType === "diamond" ? 200 : 220;
+
+          // Build elements skeleton using Excalidraw native start/end binding
           const elements: unknown[] = [
             {
+              id: newNodeElementId,
               type: nodeType,
               x,
               y,
@@ -160,9 +165,10 @@ export function CanvasBridge({
               backgroundColor: "#a5d8ff",
               strokeColor: "#1971c2",
               customData: { nodeId },
-              label: { text: title, fontSize: 16, fontFamily: 1 },
+              label: { text: title, fontSize: 16 },
             },
           ];
+
           if (targetElementId) {
             const target = els.find((e) => e.id === targetElementId);
             if (target) {
@@ -176,66 +182,36 @@ export function CanvasBridge({
                   [0, 0],
                   [x - (target.x + target.width), y + 40 - (target.y + target.height / 2)],
                 ],
-                startBinding: { elementId: targetElementId, focus: 0, gap: 8, fixedPoint: null },
-                endBinding: null,
-              } as unknown as Record<string, unknown>);
+                start: { id: targetElementId },
+                end: { id: newNodeElementId },
+              });
             }
           }
-          const created = convertToExcalidrawElements(elements as never[]);
-          const elementId = created[0]?.id ?? "";
-          // If arrow was created, bind it on both ends and patch boundElements so it follows on drag
-          if (targetElementId && created.length > 1) {
-            const newNode = created[0] as unknown as Record<string, unknown>;
-            const arrow = created[1] as unknown as Record<string, unknown>;
-            (arrow as Record<string, unknown>).endBinding = {
-              elementId: newNode.id as string,
-              focus: 0,
-              gap: 8,
-              fixedPoint: null,
-            };
-            (arrow as Record<string, unknown>).startBinding = {
-              elementId: targetElementId,
-              focus: 0,
-              gap: 8,
-              fixedPoint: null,
-            };
-            // Preserve label explicitly before binding mutation
-            // (binding patch must not drop label — was causing empty text)
-            const origLabel = (newNode as Record<string, unknown>).label as Record<string, unknown> | undefined;
-            const newNodeBound = [
-              ...(((newNode.boundElements as unknown[]) ?? []) as unknown[]),
-              { id: arrow.id as string, type: "arrow" },
-            ] as unknown[];
-            (newNode as Record<string, unknown>).boundElements = newNodeBound;
-            // Restore label if it was dropped by mutation, with safe defaults
-            if (origLabel) {
-              (newNode as Record<string, unknown>).label = origLabel;
-            } else if (title) {
-              (newNode as Record<string, unknown>).label = { text: title, fontSize: 16, fontFamily: 1 };
-            }
-            const existing = a.getSceneElements() as unknown as Record<string, unknown>[];
-            const arrowId = arrow.id as string;
-            const patchedExisting = existing.map((el) => {
-              if (el.id === targetElementId) {
-                const be = ((el.boundElements as unknown[]) ?? []) as unknown[];
-                if ((be as { id: string }[]).some((b) => b.id === arrowId)) return el;
-                return { ...el, boundElements: [...be, { id: arrowId, type: "arrow" }] };
-              }
-              return el;
-            });
-            const withoutOldIds = patchedExisting.filter(
-              (el) => el.id !== newNode.id && el.id !== arrow.id,
-            );
-            a.updateScene({
-              elements: [...withoutOldIds, newNode, arrow] as never[],
-              captureUpdate: CaptureUpdateAction.IMMEDIATELY,
-            });
-          } else {
-            a.updateScene({
-              elements: [...a.getSceneElements(), ...created],
-              captureUpdate: CaptureUpdateAction.IMMEDIATELY,
-            });
-          }
+
+          // convertToExcalidrawElements with regenerateIds: false preserves our exact IDs
+          // and automatically binds the arrow to start & end containers + creates container text element
+          const created = convertToExcalidrawElements(elements as never[], {
+            regenerateIds: false,
+          });
+
+          // Identify container shape element
+          const container = created.find(
+            (e) => e.type === "rectangle" || e.type === "ellipse" || e.type === "diamond",
+          );
+          const elementId = container?.id ?? newNodeElementId;
+
+          // Combine with existing elements, replacing any target that got updated boundElements
+          const createdMap = new Map(created.map((e) => [e.id, e]));
+          const currentElements = a.getSceneElements();
+          const nextElements = currentElements
+            .map((el) => createdMap.get(el.id) ?? el)
+            .concat(created.filter((el) => !currentElements.some((curr) => curr.id === el.id)));
+
+          a.updateScene({
+            elements: nextElements,
+            captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+          });
+
           return { nodeId, elementId };
         },
         applyRemote(remote) {
