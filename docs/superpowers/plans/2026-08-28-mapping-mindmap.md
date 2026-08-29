@@ -1341,11 +1341,10 @@ export async function POST(request: Request) {
 
 ```ts
 import { db } from "@/lib/db";
-import { maps, mapState, mapNodes, mapFiles, presence, user as userTable } from "@/lib/schema";
+import { maps, mapState, mapNodes, mapFiles, presence, mapCollaborators, user as userTable } from "@/lib/schema";
 import { requireMapRole } from "@/lib/guards";
 import { renameMapSchema } from "@/lib/validators";
 import { eq, inArray } from "drizzle-orm";
-import { mapCollaborators } from "@/lib/schema";
 
 export const runtime = "nodejs";
 
