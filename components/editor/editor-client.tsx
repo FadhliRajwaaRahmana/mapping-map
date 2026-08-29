@@ -18,6 +18,8 @@ import {
 } from "./canvas-bridge";
 import type { ScenePayload } from "@/lib/scene";
 import { MAX_IMAGE_BYTES, sceneSizeBytes } from "@/lib/scene";
+import type { OrderedExcalidrawElement } from "@excalidraw/excalidraw/element/types";
+import type { NodeShape } from "./canvas-bridge";
 import { toScenePayload } from "@/lib/scene-client";
 import { api, ApiError, requestWithHeaders } from "@/lib/api-client";
 import { useCreateNodeKeybinding } from "@/lib/hooks/use-create-node-keybinding";
@@ -57,6 +59,7 @@ export function EditorClient({
   const handleRef = useRef<CanvasHandle | null>(null);
   const [openNodeId, setOpenNodeId] = useState<string | null>(null);
   const [nodes, setNodes] = useState<NodeRow[]>(initialNodes);
+  const [sceneElements, setSceneElements] = useState<readonly OrderedExcalidrawElement[]>([]);
   const canEdit = role !== "viewer";
 
   // ── Save + poll state ─────────────────────────────────────────────────
@@ -112,6 +115,7 @@ export function EditorClient({
 
   const onSceneChange = useCallback(
     (snap: SceneSnapshot) => {
+      setSceneElements(snap.elements);
       if (!canEdit) return;
       if (skipSaveRef.current) {
         skipSaveRef.current = false;
@@ -225,10 +229,10 @@ export function EditorClient({
     }
   }
 
-  async function handleAutoAdd(title: string, targetElementId: string | null) {
+  async function handleAutoAdd(title: string, targetElementId: string | null, shape: NodeShape = "rectangle") {
     const handle = handleRef.current;
     if (!handle) { toast.error("Canvas belum siap"); return; }
-    const created = handle.addAutoNode(title, targetElementId);
+    const created = handle.addAutoNode(title, targetElementId, shape);
     if (!created) return;
     try {
       const node = await api.post<NodeRow>(`/api/maps/${mapId}/nodes`, {
@@ -324,7 +328,7 @@ export function EditorClient({
           )}
 
           {/* Presence */}
-          <AutoAddPanel nodes={nodes} onAdd={(title, tid) => void handleAutoAdd(title, tid)} canEdit={canEdit} />
+          <AutoAddPanel nodes={nodes} sceneElements={sceneElements} onAdd={(title, tid, shape) => void handleAutoAdd(title, tid, shape)} canEdit={canEdit} />
           <PresenceAvatars people={people} selfId={selfUserId} />
 
           {/* Share dialog — owner only */}

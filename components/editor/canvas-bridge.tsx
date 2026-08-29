@@ -25,11 +25,17 @@ export type SceneSnapshot = {
   files: BinaryFiles;
 };
 
+export type NodeShape = "rectangle" | "ellipse" | "diamond";
+
 export type CanvasHandle = {
   /** Create a labeled rectangle node at the viewport center. Returns ids or null. */
   addNodeAtCenter(title: string): { nodeId: string; elementId: string } | null;
-  /** Auto-add node near target with optional arrow to target. */
-  addAutoNode(title: string, targetElementId?: string | null): { nodeId: string; elementId: string } | null;
+  /** Auto-add node near target with optional arrow to target. Arrow is bound on both ends so it follows when boxes move. */
+  addAutoNode(
+    title: string,
+    targetElementId?: string | null,
+    shape?: NodeShape,
+  ): { nodeId: string; elementId: string } | null;
   /** Apply a remote persisted scene WITHOUT polluting local undo/redo. */
   applyRemote(remote: ScenePayload): void;
   /** Soft-delete an element by id (used to roll back a failed node save). */
@@ -90,21 +96,33 @@ export function CanvasBridge({
           const elementId = created[0]?.id ?? "";
           a.updateScene({
             elements: [...a.getSceneElements(), ...created],
-            captureUpdate: CaptureUpdateAction.IMMEDIATELY, // user action → undoable
+            captureUpdate: CaptureUpdateAction.IMMEDIATELY,
           });
           return { nodeId, elementId };
         },
-        addAutoNode(title, targetElementId) {
+        addAutoNode(title, targetElementId, shape = "rectangle") {
           const a = apiRef.current;
           if (!a) return null;
           const nodeId = newId();
-          const els = a.getSceneElements() as unknown as { id: string; x: number; y: number; width: number; height: number; type: string }[];
+          const allowed = new Set(["rectangle", "ellipse", "diamond"]);
+          const nodeType = (allowed.has(shape as string) ? shape : "rectangle") as NodeShape;
+          const elsAll = a.getSceneElements() as unknown as {
+            id: string;
+            x: number;
+            y: number;
+            width: number;
+            height: number;
+            type: string;
+            isDeleted?: boolean;
+          }[];
+          const els = elsAll.filter((e) => !e.isDeleted);
           let x: number, y: number;
           if (targetElementId) {
             const target = els.find((e) => e.id === targetElementId);
             if (target) {
-              // Place to the right of target, with slight vertical spread based on existing children count
-              const siblings = els.filter((e) => e.type === "rectangle").length;
+              const siblings = els.filter(
+                (e) => e.type === "rectangle" || e.type === "ellipse" || e.type === "diamond",
+              ).length;
               const row = siblings % 3;
               x = target.x + target.width + 40;
               y = target.y + row * 110 - 55;
@@ -114,8 +132,9 @@ export function CanvasBridge({
               y = -st.scrollY + st.height / 2 - 40;
             }
           } else if (els.length > 0) {
-            // No target: place near last rectangle to the right
-            const rects = els.filter((e) => e.type === "rectangle");
+            const rects = els.filter(
+              (e) => e.type === "rectangle" || e.type === "ellipse" || e.type === "diamond",
+            );
             const last = rects[rects.length - 1];
             if (last) {
               x = last.x + last.width + 40;
@@ -130,11 +149,14 @@ export function CanvasBridge({
             x = -st.scrollX + st.width / 2 - 100;
             y = -st.scrollY + st.height / 2 - 40;
           }
+          const nodeW = nodeType === "diamond" ? 200 : 220;
           const elements: unknown[] = [
             {
-              type: "rectangle",
-              x, y,
-              width: 220, height: 80,
+              type: nodeType,
+              x,
+              y,
+              width: nodeW,
+              height: 80,
               backgroundColor: "#a5d8ff",
               strokeColor: "#1971c2",
               customData: { nodeId },
@@ -150,17 +172,59 @@ export function CanvasBridge({
                 y: target.y + target.height / 2,
                 width: x - (target.x + target.width),
                 height: y + 40 - (target.y + target.height / 2),
-                points: [[0, 0], [x - (target.x + target.width), y + 40 - (target.y + target.height / 2)]],
-                startBinding: { elementId: targetElementId, focus: 0, gap: 4 },
+                points: [
+                  [0, 0],
+                  [x - (target.x + target.width), y + 40 - (target.y + target.height / 2)],
+                ],
+                startBinding: { elementId: targetElementId, focus: 0, gap: 8 },
+                endBinding: null,
               } as unknown as Record<string, unknown>);
             }
           }
           const created = convertToExcalidrawElements(elements as never[]);
           const elementId = created[0]?.id ?? "";
-          a.updateScene({
-            elements: [...a.getSceneElements(), ...created],
-            captureUpdate: CaptureUpdateAction.IMMEDIATELY,
-          });
+          // If arrow was created, bind it on both ends and patch boundElements so it follows on drag
+          if (targetElementId && created.length > 1) {
+            const newNode = created[0] as unknown as Record<string, unknown>;
+            const arrow = created[1] as unknown as Record<string, unknown>;
+            (arrow as Record<string, unknown>).endBinding = {
+              elementId: newNode.id as string,
+              focus: 0,
+              gap: 8,
+            };
+            (arrow as Record<string, unknown>).startBinding = {
+              elementId: targetElementId,
+              focus: 0,
+              gap: 8,
+            };
+            const newNodeBound = [
+              ...(((newNode.boundElements as unknown[]) ?? []) as unknown[]),
+              { id: arrow.id as string, type: "arrow" },
+            ] as unknown[];
+            (newNode as Record<string, unknown>).boundElements = newNodeBound;
+            const existing = a.getSceneElements() as unknown as Record<string, unknown>[];
+            const arrowId = arrow.id as string;
+            const patchedExisting = existing.map((el) => {
+              if (el.id === targetElementId) {
+                const be = ((el.boundElements as unknown[]) ?? []) as unknown[];
+                if ((be as { id: string }[]).some((b) => b.id === arrowId)) return el;
+                return { ...el, boundElements: [...be, { id: arrowId, type: "arrow" }] };
+              }
+              return el;
+            });
+            const withoutOldIds = patchedExisting.filter(
+              (el) => el.id !== newNode.id && el.id !== arrow.id,
+            );
+            a.updateScene({
+              elements: [...withoutOldIds, newNode, arrow] as never[],
+              captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+            });
+          } else {
+            a.updateScene({
+              elements: [...a.getSceneElements(), ...created],
+              captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+            });
+          }
           return { nodeId, elementId };
         },
         applyRemote(remote) {
@@ -172,14 +236,13 @@ export function CanvasBridge({
             a.getFiles(),
             remote,
           );
-          // Merge files via addFiles (updateScene has no files param)
           if (Object.keys(files).length > 0) {
             a.addFiles(Object.values(files) as never[]);
           }
           a.updateScene({
             elements,
             appState: remote.appState as unknown as AppState,
-            captureUpdate: CaptureUpdateAction.NEVER, // remote → never pollutes local undo/redo
+            captureUpdate: CaptureUpdateAction.NEVER,
           });
         },
         removeElement(elementId) {
@@ -214,12 +277,7 @@ export function CanvasBridge({
         exportJson() {
           const a = apiRef.current;
           if (!a) return null;
-          return serializeAsJSON(
-            a.getSceneElements(),
-            a.getAppState(),
-            a.getFiles(),
-            "database",
-          );
+          return serializeAsJSON(a.getSceneElements(), a.getAppState(), a.getFiles(), "database");
         },
         setViewMode(view) {
           const a = apiRef.current;
@@ -244,15 +302,14 @@ export function CanvasBridge({
 
   const onPointerUp = useCallback(
     (_activeTool: unknown, pointerDownState: PointerDownState) => {
-      if (pointerDownState.drag.hasOccurred) return; // it was a drag, not a click
+      if (pointerDownState.drag.hasOccurred) return;
       const el = pointerDownState.hit.element;
       if (!el) {
         onEmptyClick();
         return;
       }
-      if (el.type === "rectangle" || el.type === "ellipse") {
-        const nodeId = (el.customData as { nodeId?: string } | undefined)
-          ?.nodeId;
+      if (el.type === "rectangle" || el.type === "ellipse" || el.type === "diamond") {
+        const nodeId = (el.customData as { nodeId?: string } | undefined)?.nodeId;
         if (nodeId) {
           onNodeClick(nodeId);
           return;
