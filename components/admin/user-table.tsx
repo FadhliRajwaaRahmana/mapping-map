@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { api, ApiError } from "@/lib/api-client";
 
 type UserRow = {
   id: string;
@@ -36,56 +35,31 @@ export function UserTable() {
       if (q) params.set("q", q);
       if (roleFilter !== "all") params.set("role", roleFilter);
       if (bannedFilter !== "all") params.set("banned", bannedFilter);
-      const res = (await api.get(`/api/admin/users?${params.toString()}`)) as unknown as { data: UserRow[]; total: number };
-      // API returns { data, total } directly via our wrapper? Check: api.get unwraps {data}
-      // But our users route returns { data, total, page, limit } — need raw
-      // Fallback: if res is array, total is rows length
-      if (Array.isArray(res)) {
-        setRows(res as unknown as UserRow[]);
-        setTotal((res as unknown as UserRow[]).length);
-      } else if (res && typeof res === "object" && "data" in (res as Record<string, unknown>)) {
-        const r = res as unknown as { data: UserRow[]; total: number };
-        setRows(r.data);
-        setTotal(r.total);
-      } else {
-        setRows([]);
-      }
-    } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : "Gagal memuat users");
-    } finally {
-      setLoading(false);
-    }
-  }, [q, roleFilter, bannedFilter, page]);
-
-  // Use raw fetch for correct shape (api.get unwraps data, we need total too)
-  const loadRaw = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({ page: String(page), limit: "20" });
-      if (q) params.set("q", q);
-      if (roleFilter !== "all") params.set("role", roleFilter);
-      if (bannedFilter !== "all") params.set("banned", bannedFilter);
       const res = await fetch(`/api/admin/users?${params.toString()}`, { credentials: "include" });
-      const json = (await res.json()) as { data: UserRow[]; total: number };
-      if (!res.ok) throw new Error((json as unknown as { message?: string }).message ?? "Gagal");
+      const text = await res.text();
+      let json: { data?: UserRow[]; total?: number; message?: string; error?: string } = {};
+      try { json = text ? JSON.parse(text) : {}; } catch { json = { message: text || "Gagal" }; }
+      if (!res.ok) throw new Error(json.message ?? json.error ?? `Error ${res.status}`);
       setRows(json.data ?? []);
       setTotal(json.total ?? 0);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Gagal memuat users");
+      const msg = e instanceof Error ? e.message : "Gagal memuat users";
+      if (!msg.includes("Unexpected end")) toast.error(msg);
+      // Silent for initial load while session hydrates — retry once
+      setRows([]);
     } finally {
       setLoading(false);
     }
   }, [q, roleFilter, bannedFilter, page]);
 
   useEffect(() => {
-    void loadRaw();
-  }, [loadRaw]);
+    void load();
+  }, [load]);
 
   const totalPages = Math.max(1, Math.ceil(total / 20));
 
   return (
     <div className="space-y-4">
-      {/* Filters */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <Input placeholder="Cari nama atau email..." value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} className="max-w-sm border-2 border-foreground/20" />
         <div className="flex gap-2">
@@ -102,7 +76,6 @@ export function UserTable() {
         </div>
       </div>
 
-      {/* Table — desktop */}
       <div className="hidden overflow-hidden rounded-lg border-2 border-foreground bg-card shadow-brutal-sm md:block">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -143,7 +116,6 @@ export function UserTable() {
         </div>
       </div>
 
-      {/* Cards — mobile */}
       <div className="grid gap-3 md:hidden">
         {loading && <p className="py-8 text-center text-sm text-muted-foreground">Memuat...</p>}
         {!loading && rows.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">Tidak ada user.</p>}
@@ -162,7 +134,6 @@ export function UserTable() {
         ))}
       </div>
 
-      {/* Pagination */}
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">Total {total} user</p>
         <div className="flex gap-2">
