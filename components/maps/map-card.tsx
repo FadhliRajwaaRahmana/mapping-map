@@ -58,16 +58,9 @@ export function MapCard({ map, index = 0 }: { map: MapItem; index?: number }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.08, ease: "easeOut" }}
-      whileHover={{ y: -4, x: -2 }}
-      className="group relative rounded-lg border-2 border-foreground bg-card shadow-brutal-sm transition-shadow hover:shadow-brutal"
+      className="group relative rounded-lg border-2 border-foreground bg-card shadow-brutal-sm transition-all hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-brutal"
     >
-      {/* Link covers the card */}
-      <Link
-        href={`/maps/${map.id}`}
-        className="absolute inset-0 z-0 rounded-md"
-        aria-label={`Buka peta ${map.title}`}
-      />
-
+      <Link href={`/maps/${map.id}`} className="absolute inset-0 z-0 rounded-lg" aria-label={`Buka peta ${map.title}`} />
       <div className="relative z-10 p-5">
         <div className="flex items-start justify-between gap-2">
           <h3 className="font-heading text-lg font-semibold leading-tight line-clamp-1">

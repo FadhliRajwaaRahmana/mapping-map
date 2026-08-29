@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { user, account, maps } from "@/lib/schema";
@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminUserDetail({ params }: { params: Promise<{ userId: string }> }) {
   const check = await requireSuperAdmin();
-  if (!check.ok) notFound();
+  if (!check.ok) redirect("/login");
   const { userId } = await params;
 
   const rows = await db.select().from(user).where(eq(user.id, userId)).limit(1);
