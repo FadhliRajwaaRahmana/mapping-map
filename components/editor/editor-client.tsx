@@ -58,24 +58,10 @@ export function EditorClient({
 }: Props) {
   const handleRef = useRef<CanvasHandle | null>(null);
   const [openNodeId, setOpenNodeId] = useState<string | null>(null);
-
-  // Filter initial nodes so only those whose element exists in initialScene are shown
-  const [nodes, setNodes] = useState<NodeRow[]>(() => {
-    if (!initialScene?.elements || initialScene.elements.length === 0) {
-      return [];
-    }
-    const liveElementIds = new Set(
-      (initialScene.elements as unknown as { id: string; isDeleted?: boolean }[])
-        .filter((e) => !e.isDeleted)
-        .map((e) => e.id),
-    );
-    return initialNodes.filter((n) => liveElementIds.has(n.elementId));
-  });
-
-  const [sceneElements, setSceneElements] = useState<readonly OrderedExcalidrawElement[]>(() => {
-    const initEls = (initialScene?.elements ?? []) as unknown as readonly OrderedExcalidrawElement[];
-    return initEls;
-  });
+  const [nodes, setNodes] = useState<NodeRow[]>(initialNodes);
+  const [sceneElements, setSceneElements] = useState<readonly OrderedExcalidrawElement[]>(
+    () => (initialScene?.elements ?? []) as unknown as readonly OrderedExcalidrawElement[],
+  );
   const canEdit = role !== "viewer";
 
   // ── Save + poll state ─────────────────────────────────────────────────
@@ -133,14 +119,6 @@ export function EditorClient({
     (snap: SceneSnapshot) => {
       setSceneElements(snap.elements);
 
-      // Prune any nodes whose canvas element is now deleted
-      const liveElementIds = new Set(
-        (snap.elements as unknown as { id: string; isDeleted?: boolean }[])
-          .filter((e) => !e.isDeleted)
-          .map((e) => e.id),
-      );
-      setNodes((prev) => prev.filter((n) => liveElementIds.has(n.elementId)));
-
       if (!canEdit) return;
       if (skipSaveRef.current) {
         skipSaveRef.current = false;
@@ -151,6 +129,7 @@ export function EditorClient({
     },
     [canEdit, doSave],
   );
+
   useEffect(() => () => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
   }, []);
@@ -169,18 +148,9 @@ export function EditorClient({
           skipSaveRef.current = true;
           handleRef.current?.applyRemote(r.data.scene);
           setRevision(rev);
-          // keep dropdown in sync with remote scene
           try {
             const snap = handleRef.current?.getSnapshot();
-            if (snap) {
-              setSceneElements(snap.elements as unknown as readonly OrderedExcalidrawElement[]);
-              const liveIds = new Set(
-                (snap.elements as unknown as { id: string; isDeleted?: boolean }[])
-                  .filter((e) => !e.isDeleted)
-                  .map((e) => e.id),
-              );
-              setNodes((prev) => prev.filter((n) => liveIds.has(n.elementId)));
-            }
+            if (snap) setSceneElements(snap.elements as unknown as readonly OrderedExcalidrawElement[]);
           } catch {}
         }
       } catch {
@@ -382,7 +352,12 @@ export function EditorClient({
           )}
 
           {/* Presence */}
-          <AutoAddPanel nodes={nodes} sceneElements={sceneElements} onAdd={(title, tid, shape) => void handleAutoAdd(title, tid, shape)} canEdit={canEdit} />
+          <AutoAddPanel
+            nodes={nodes}
+            sceneElements={sceneElements}
+            onAdd={(title, tid, shape) => void handleAutoAdd(title, tid, shape)}
+            canEdit={canEdit}
+          />
           <PresenceAvatars people={people} selfId={selfUserId} />
 
           {/* Share dialog — owner only */}
