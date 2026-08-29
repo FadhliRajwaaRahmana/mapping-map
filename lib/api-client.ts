@@ -46,3 +46,26 @@ export const api = {
     request<T>(path, { method: "PATCH", body: JSON.stringify(body) }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };
+
+/* ------------------------------------------------------------------ */
+/*  ETag-aware fetch (polling needs If-None-Match + 304 handling)     */
+/* ------------------------------------------------------------------ */
+
+export type RawResult<T> = { status: number; data: T | null; etag: string | null };
+
+export async function requestWithHeaders<T>(path: string, init?: RequestInit): Promise<RawResult<T>> {
+  const res = await fetch(path, { credentials: "include", ...init });
+  if (res.status === 304) return { status: 304, data: null, etag: res.headers.get("etag") };
+  const etag = res.headers.get("etag");
+  if (!res.ok) {
+    let message = `Gagal (status ${res.status})`;
+    try {
+      message = ((await res.json()) as { message?: string }).message ?? message;
+    } catch {
+      /* non-JSON */
+    }
+    throw new ApiError(res.status, "internal", message);
+  }
+  const json = (await res.json()) as { data: T };
+  return { status: res.status, data: json.data, etag };
+}

@@ -3,6 +3,7 @@ import { POST } from "@/app/api/auth/[...all]/route";
 import { auth } from "@/lib/auth";
 import { POST as postMaps, GET as getMaps } from "@/app/api/maps/route";
 import { GET as getMap, PATCH as patchMap, DELETE as deleteMap } from "@/app/api/maps/[id]/route";
+import { GET as getState, POST as postState } from "@/app/api/maps/[id]/state/route";
 
 // `lib/guards.ts` calls next/headers's headers(), which needs a Next request
 // scope (AsyncLocalStorage) that only exists inside the real Next server. When
@@ -129,5 +130,128 @@ describe("maps API", () => {
     expect(del.status).toBe(200);
     const after = await getMap(use(new Request("http://localhost:3000/api/maps/" + id, { headers: { cookie } })), ctx(id));
     expect(after.status).toBe(404);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  State save + poll (ETag, merge, 413)                              */
+/* ------------------------------------------------------------------ */
+
+function sceneWithRects(n: number) {
+  return {
+    type: "excalidraw",
+    version: 2,
+    source: "test",
+    elements: Array.from({ length: n }, (_, i) => ({
+      id: `e${i}`,
+      type: "rectangle",
+      x: i * 10,
+      y: 0,
+      width: 10,
+      height: 10,
+      version: 1,
+    })),
+    appState: { viewBackgroundColor: "#ffffff" },
+    files: {},
+  };
+}
+
+describe("state API", () => {
+  it("saves (revision 1 + ETag), 304s on poll, and merges on the next save", async () => {
+    const cookie = await signUp(`s${Date.now()}@example.com`);
+    const created = (await (
+      await postMaps(
+        use(
+          new Request("http://localhost:3000/api/maps", {
+            method: "POST",
+            headers: { "content-type": "application/json", cookie },
+            body: JSON.stringify({ title: "Sync" }),
+          }),
+        ),
+      )
+    ).json()) as { data: { id: string } };
+    const id = created.data.id;
+
+    // First save
+    const post = await postState(
+      use(
+        new Request(`http://localhost:3000/api/maps/${id}/state`, {
+          method: "POST",
+          headers: { "content-type": "application/json", cookie },
+          body: JSON.stringify({ scene: sceneWithRects(2), baseRevision: 0 }),
+        }),
+      ),
+      ctx(id),
+    );
+    expect(post.status).toBe(200);
+    expect(post.headers.get("etag")).toBe('"1"');
+    const postBody = (await post.json()) as { data: { revision: number } };
+    expect(postBody.data.revision).toBe(1);
+
+    // Poll with matching ETag → 304
+    const poll = await getState(
+      use(
+        new Request(`http://localhost:3000/api/maps/${id}/state`, {
+          headers: { cookie, "if-none-match": '"1"' },
+        }),
+      ),
+      ctx(id),
+    );
+    expect(poll.status).toBe(304);
+
+    // Second save with more elements → merges
+    const post2 = await postState(
+      use(
+        new Request(`http://localhost:3000/api/maps/${id}/state`, {
+          method: "POST",
+          headers: { "content-type": "application/json", cookie },
+          body: JSON.stringify({ scene: sceneWithRects(3), baseRevision: 1 }),
+        }),
+      ),
+      ctx(id),
+    );
+    const body2 = (await post2.json()) as {
+      data: { revision: number; scene: { elements: unknown[] } };
+    };
+    expect(body2.data.revision).toBe(2);
+    expect(body2.data.scene.elements.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("rejects oversized scenes with 413", async () => {
+    const cookie = await signUp(`big${Date.now()}@example.com`);
+    const created = (await (
+      await postMaps(
+        use(
+          new Request("http://localhost:3000/api/maps", {
+            method: "POST",
+            headers: { "content-type": "application/json", cookie },
+            body: JSON.stringify({ title: "Big" }),
+          }),
+        ),
+      )
+    ).json()) as { data: { id: string } };
+    const huge = sceneWithRects(2);
+    huge.files = {
+      big: {
+        id: "big",
+        mimeType: "image/png",
+        dataURL: "data:image/png;base64," + "A".repeat(5 * 1024 * 1024),
+        created: 1,
+      },
+    };
+    const res = await postState(
+      use(
+        new Request(
+          `http://localhost:3000/api/maps/${created.data.id}/state`,
+          {
+            method: "POST",
+            headers: { "content-type": "application/json", cookie },
+            body: JSON.stringify({ scene: huge, baseRevision: 0 }),
+          },
+        ),
+      ),
+      ctx(created.data.id),
+    );
+    expect(res.status).toBe(413);
   });
 });

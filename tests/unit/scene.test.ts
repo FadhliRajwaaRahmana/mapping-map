@@ -23,6 +23,7 @@ import {
   parseScene,
   sceneSizeBytes,
   mergeFiles,
+  mergeElementsLWW,
   MAX_SCENE_BYTES,
   MAX_IMAGE_BYTES,
   type ScenePayload,
@@ -66,6 +67,28 @@ describe("scene helpers (server-safe)", () => {
   it("reports the 4MB scene cap and 2MB image cap", () => {
     expect(MAX_SCENE_BYTES).toBe(4 * 1024 * 1024);
     expect(MAX_IMAGE_BYTES).toBe(2 * 1024 * 1024);
+  });
+
+  it("mergeElementsLWW keeps both unique elements and picks higher version on conflict", () => {
+    const stored = [
+      { id: "a", type: "rectangle", version: 2, x: 0 },
+      { id: "b", type: "ellipse", version: 1, x: 10 },
+    ];
+    const incoming = [
+      { id: "a", type: "rectangle", version: 1, x: 99 }, // lower version → stored wins
+      { id: "b", type: "ellipse", version: 3, x: 20 },   // higher version → incoming wins
+      { id: "c", type: "diamond", version: 1, x: 30 },   // new → keep
+    ];
+    const merged = mergeElementsLWW(stored, incoming);
+    const byId = new Map(merged.map((e) => [(e as { id: string }).id, e]));
+    expect(byId.size).toBe(3);
+    // "a" should be stored version (version 2)
+    expect((byId.get("a") as { version: number }).version).toBe(2);
+    // "b" should be incoming version (version 3)
+    expect((byId.get("b") as { version: number }).version).toBe(3);
+    expect((byId.get("b") as { x: number }).x).toBe(20);
+    // "c" new element
+    expect(byId.has("c")).toBe(true);
   });
 });
 

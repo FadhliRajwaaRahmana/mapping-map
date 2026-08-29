@@ -40,3 +40,5 @@ export const createNodeFullSchema = z.object({
   elementId: z.string().trim().min(1).max(100),
   title: z.string().trim().min(1).max(300).default("Tanpa judul"),
 });
+
+export const MAX_BODY_BYTES = 4 * 1024 * 1024;

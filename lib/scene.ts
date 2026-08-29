@@ -38,3 +38,30 @@ export function mergeFiles<T extends Record<string, unknown>>(
 ): T {
   return { ...remote, ...local };
 }
+
+type SceneElement = { id: string; version: number; [k: string]: unknown };
+
+/**
+ * Server-safe per-element last-write-wins merge.
+ * Same semantics as excalidraw's `reconcileElements` but runs without DOM.
+ * `stored` = what's in the database, `incoming` = what the client sent.
+ */
+export function mergeElementsLWW(
+  stored: unknown[],
+  incoming: unknown[],
+): unknown[] {
+  const map = new Map<string, SceneElement>();
+  for (const el of stored) {
+    const e = el as SceneElement;
+    if (e.id) map.set(e.id, e);
+  }
+  for (const el of incoming) {
+    const e = el as SceneElement;
+    if (!e.id) continue;
+    const existing = map.get(e.id);
+    if (!existing || (e.version ?? 0) >= (existing.version ?? 0)) {
+      map.set(e.id, e);
+    }
+  }
+  return Array.from(map.values());
+}

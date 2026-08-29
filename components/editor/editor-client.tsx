@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -10,7 +10,9 @@ import {
   type SceneSnapshot,
 } from "./canvas-bridge";
 import type { ScenePayload } from "@/lib/scene";
-import { api, ApiError } from "@/lib/api-client";
+import { MAX_IMAGE_BYTES, sceneSizeBytes } from "@/lib/scene";
+import { toScenePayload } from "@/lib/scene-client";
+import { api, ApiError, requestWithHeaders } from "@/lib/api-client";
 import { useCreateNodeKeybinding } from "@/lib/hooks/use-create-node-keybinding";
 import { NodePanel } from "./node-panel";
 
@@ -37,10 +39,8 @@ export function EditorClient({
   title,
   role,
   userName,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  selfUserId,
+  selfUserId: _selfUserId,
   initialScene,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   initialRevision,
   initialNodes,
 }: Props) {
@@ -49,9 +49,95 @@ export function EditorClient({
   const [nodes, setNodes] = useState<NodeRow[]>(initialNodes);
   const canEdit = role !== "viewer";
 
-  const onSceneChange = useCallback((_snap: SceneSnapshot) => {
-    // Task 12 wires debounced save here.
+  // ── Save + poll state ─────────────────────────────────────────────────
+  const [revision, setRevision] = useState(initialRevision);
+  const revisionRef = useRef(revision);
+  revisionRef.current = revision;
+  const skipSaveRef = useRef(true); // swallow the initial hydration onChange burst
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [syncStatus, setSyncStatus] = useState<"saved" | "saving" | "error">("saved");
+
+  const doSave = useCallback(
+    async (snap: SceneSnapshot) => {
+      for (const f of Object.values(snap.files)) {
+        const dataURL = (f as { dataURL?: string }).dataURL;
+        if (dataURL && dataURL.length > MAX_IMAGE_BYTES) {
+          toast.error("Ada gambar melebihi 2 MB — kompres terlebih dahulu.", { id: "img-too-big" });
+          return;
+        }
+      }
+      const scene = toScenePayload(snap.elements, snap.appState, snap.files);
+      if (sceneSizeBytes(scene) > 4 * 1024 * 1024) {
+        toast.error("Peta terlalu besar (>4 MB). Hapus beberapa gambar untuk menyimpan.", { id: "scene-too-big" });
+        return;
+      }
+      setSyncStatus("saving");
+      try {
+        const r = await api.post<{ revision: number }>(`/api/maps/${mapId}/state`, {
+          scene,
+          baseRevision: revisionRef.current,
+        });
+        setRevision(r.revision);
+        setSyncStatus("saved");
+      } catch (e) {
+        setSyncStatus("error");
+        toast.error(e instanceof ApiError ? e.message : "Gagal menyimpan — akan menyinkronkan ulang");
+        // recover: pull the server's authoritative scene into the canvas
+        try {
+          const latest = await requestWithHeaders<{ revision: number; scene: ScenePayload | null }>(
+            `/api/maps/${mapId}/state`,
+          );
+          if (latest.data?.scene) {
+            skipSaveRef.current = true;
+            handleRef.current?.applyRemote(latest.data.scene);
+            setRevision(latest.data.revision);
+            setSyncStatus("saved");
+          }
+        } catch {
+          /* will retry on the next edit */
+        }
+      }
+    },
+    [mapId],
+  );
+
+  const onSceneChange = useCallback(
+    (snap: SceneSnapshot) => {
+      if (!canEdit) return;
+      if (skipSaveRef.current) {
+        skipSaveRef.current = false;
+        return;
+      }
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(() => void doSave(snap), 700);
+    },
+    [canEdit, doSave],
+  );
+  useEffect(() => () => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
   }, []);
+
+  // ── 2.5s poll — ALL roles see others' changes ──────────────────────
+  useEffect(() => {
+    const timer = setInterval(async () => {
+      try {
+        const r = await requestWithHeaders<{ revision: number; scene: ScenePayload | null }>(
+          `/api/maps/${mapId}/state`,
+          { headers: { "if-none-match": `"${revisionRef.current}"` } },
+        );
+        if (r.status === 304) return;
+        const rev = r.data?.revision ?? 0;
+        if (rev > revisionRef.current && r.data?.scene) {
+          skipSaveRef.current = true; // applying remote must not trigger a save
+          handleRef.current?.applyRemote(r.data.scene);
+          setRevision(rev);
+        }
+      } catch {
+        /* transient network error — retry next tick */
+      }
+    }, 2500);
+    return () => clearInterval(timer);
+  }, [mapId]);
 
   async function addNode() {
     const handle = handleRef.current;
@@ -137,6 +223,14 @@ export function EditorClient({
               Node
             </Button>
           )}
+          <span className="text-xs text-muted-foreground">
+            {syncStatus === "saving"
+              ? "Menyimpan…"
+              : syncStatus === "error"
+                ? "Gagal menyimpan"
+                : "Tersimpan"}
+          </span>
+          <div className="h-4 w-px bg-border" />
           <span className="text-xs text-muted-foreground">{userName}</span>
         </div>
       </header>
