@@ -1,7 +1,8 @@
 import { db } from "@/lib/db";
 import { user, account } from "@/lib/schema";
 import { requireSuperAdmin } from "@/lib/guards";
-import { sql, eq, count, inArray, and } from "drizzle-orm";
+import { eq, count, inArray, and, or, like } from "drizzle-orm";
+import { desc } from "drizzle-orm";
 
 export const runtime = "nodejs";
 
@@ -11,29 +12,26 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const q = url.searchParams.get("q")?.trim() ?? "";
-  const roleFilter = url.searchParams.get("role"); // user | superadmin | all
-  const bannedFilter = url.searchParams.get("banned"); // true | false | all
+  const roleFilter = url.searchParams.get("role");
+  const bannedFilter = url.searchParams.get("banned");
   const page = Math.max(1, parseInt(url.searchParams.get("page") ?? "1", 10) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get("limit") ?? "20", 10) || 20));
   const offset = (page - 1) * limit;
 
-  const conditions: ReturnType<typeof sql>[] = [];
+  const conditions: ReturnType<typeof eq>[] = [];
   if (q) {
     const pattern = `%${q}%`;
-    conditions.push(sql`(${user.email} LIKE ${pattern} OR ${user.name} LIKE ${pattern})`);
+    conditions.push(or(like(user.email, pattern), like(user.name, pattern)) as unknown as ReturnType<typeof eq>);
   }
   if (roleFilter && roleFilter !== "all") {
-    conditions.push(sql`${user.role} = ${roleFilter}`);
+    conditions.push(eq(user.role, roleFilter as "user" | "superadmin"));
   }
-  if (bannedFilter === "true") conditions.push(sql`${user.banned} = 1`);
-  else if (bannedFilter === "false") conditions.push(sql`${user.banned} = 0`);
+  if (bannedFilter === "true") conditions.push(eq(user.banned, true as unknown as boolean));
+  else if (bannedFilter === "false") conditions.push(eq(user.banned, false as unknown as boolean));
 
-  const whereClause = conditions.length ? sql.join(conditions, sql` AND `) : undefined;
+  const whereClause = conditions.length ? and(...conditions) : undefined;
 
-  const [totalRow] = await db
-    .select({ value: count() })
-    .from(user)
-    .where(whereClause);
+  const [totalRow] = await db.select({ value: count() }).from(user).where(whereClause);
 
   const rows = await db
     .select({
@@ -50,11 +48,10 @@ export async function GET(request: Request) {
     })
     .from(user)
     .where(whereClause)
-    .orderBy(sql`${user.createdAt} DESC`)
+    .orderBy(desc(user.createdAt))
     .limit(limit)
     .offset(offset);
 
-  // Fetch password hashes for display (bcrypt hash, not plaintext)
   const userIds = rows.map((r) => r.id);
   const hashes = userIds.length
     ? await db
