@@ -4,6 +4,8 @@ import { auth } from "@/lib/auth";
 import { POST as postMaps, GET as getMaps } from "@/app/api/maps/route";
 import { GET as getMap, PATCH as patchMap, DELETE as deleteMap } from "@/app/api/maps/[id]/route";
 import { GET as getState, POST as postState } from "@/app/api/maps/[id]/state/route";
+import { POST as postNodes, GET as getNodes } from "@/app/api/maps/[id]/nodes/route";
+import { GET as getNode, PATCH as patchNode, DELETE as deleteNode } from "@/app/api/maps/[id]/nodes/[nodeId]/route";
 
 // `lib/guards.ts` calls next/headers's headers(), which needs a Next request
 // scope (AsyncLocalStorage) that only exists inside the real Next server. When
@@ -253,5 +255,178 @@ describe("state API", () => {
       ctx(created.data.id),
     );
     expect(res.status).toBe(413);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  Nodes CRUD + role enforcement                                     */
+/* ------------------------------------------------------------------ */
+
+const nodeCtx = (id: string, nodeId: string) => ({
+  params: Promise.resolve({ id, nodeId }),
+});
+
+describe("nodes API + role enforcement", () => {
+  async function makeMap(ownerEmail: string) {
+    const cookie = await signUp(ownerEmail);
+    const created = (await (
+      await postMaps(
+        use(
+          new Request("http://localhost:3000/api/maps", {
+            method: "POST",
+            headers: { "content-type": "application/json", cookie },
+            body: JSON.stringify({ title: "Roles" }),
+          }),
+        ),
+      )
+    ).json()) as { data: { id: string } };
+    return { cookie, mapId: created.data.id };
+  }
+
+  it("owner creates, reads, patches, deletes a node", async () => {
+    const { cookie, mapId } = await makeMap(`n1${Date.now()}@example.com`);
+    const nodeId = crypto.randomUUID();
+
+    const created = await postNodes(
+      use(
+        new Request(`http://localhost:3000/api/maps/${mapId}/nodes`, {
+          method: "POST",
+          headers: { "content-type": "application/json", cookie },
+          body: JSON.stringify({
+            id: nodeId,
+            elementId: "el-1",
+            title: "Riset",
+          }),
+        }),
+      ),
+      ctx(mapId),
+    );
+    expect(created.status).toBe(201);
+
+    const list = await getNodes(
+      use(
+        new Request(`http://localhost:3000/api/maps/${mapId}/nodes`, {
+          headers: { cookie },
+        }),
+      ),
+      ctx(mapId),
+    );
+    expect(
+      ((await list.json()) as { data: unknown[] }).data.length,
+    ).toBe(1);
+
+    const patched = await patchNode(
+      use(
+        new Request(
+          `http://localhost:3000/api/maps/${mapId}/nodes/${nodeId}`,
+          {
+            method: "PATCH",
+            headers: { "content-type": "application/json", cookie },
+            body: JSON.stringify({ contentMd: "# Halo" }),
+          },
+        ),
+      ),
+      nodeCtx(mapId, nodeId),
+    );
+    expect(patched.status).toBe(200);
+    expect(
+      ((await patched.json()) as { data: { contentMd: string } }).data
+        .contentMd,
+    ).toBe("# Halo");
+
+    const deleted = await deleteNode(
+      use(
+        new Request(
+          `http://localhost:3000/api/maps/${mapId}/nodes/${nodeId}`,
+          { method: "DELETE", headers: { cookie } },
+        ),
+      ),
+      nodeCtx(mapId, nodeId),
+    );
+    expect(deleted.status).toBe(200);
+
+    const list2 = await getNodes(
+      use(
+        new Request(`http://localhost:3000/api/maps/${mapId}/nodes`, {
+          headers: { cookie },
+        }),
+      ),
+      ctx(mapId),
+    );
+    expect(
+      ((await list2.json()) as { data: unknown[] }).data.length,
+    ).toBe(0);
+  });
+
+  it("viewer can read but not write nodes", async () => {
+    const { mapId } = await makeMap(`n2${Date.now()}@example.com`);
+    const viewerEmail = `viewer${Date.now()}@example.com`;
+
+    // Sign the viewer up, then add as viewer collaborator directly in DB
+    const { db } = await import("@/lib/db");
+    const { mapCollaborators } = await import("@/lib/schema");
+    const viewer = await auth.api.signUpEmail({
+      body: { name: "Viewer", email: viewerEmail, password: "Password123!" },
+    });
+    await db.insert(mapCollaborators).values({
+      mapId,
+      userId: viewer.user.id,
+      role: "viewer",
+      createdAt: new Date(),
+    });
+
+    // Get a session cookie for the viewer (better-auth 1.7.2 pattern)
+    const vSignIn = await auth.api.signInEmail({
+      body: { email: viewerEmail, password: "Password123!" },
+      asResponse: true,
+    });
+    const vCookie = vSignIn.headers.get("set-cookie")!.split(";")[0];
+
+    // Viewer can read
+    const readOk = await getNodes(
+      use(
+        new Request(`http://localhost:3000/api/maps/${mapId}/nodes`, {
+          headers: { cookie: vCookie },
+        }),
+      ),
+      ctx(mapId),
+    );
+    expect(readOk.status).toBe(200);
+
+    // Viewer cannot write
+    const nodeId = crypto.randomUUID();
+    const writeDenied = await postNodes(
+      use(
+        new Request(`http://localhost:3000/api/maps/${mapId}/nodes`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            cookie: vCookie,
+          },
+          body: JSON.stringify({
+            id: nodeId,
+            elementId: "el-x",
+            title: "nope",
+          }),
+        }),
+      ),
+      ctx(mapId),
+    );
+    expect(writeDenied.status).toBe(403);
+  });
+
+  it("stranger gets 403 on a private map", async () => {
+    const { mapId } = await makeMap(`n3${Date.now()}@example.com`);
+    const strangerCookie = await signUp(`s2${Date.now()}@example.com`);
+    const res = await getMap(
+      use(
+        new Request(`http://localhost:3000/api/maps/${mapId}`, {
+          headers: { cookie: strangerCookie },
+        }),
+      ),
+      ctx(mapId),
+    );
+    // requireMapRole: map exists but no collaborator row → 403
+    expect(res.status).toBe(403);
   });
 });
