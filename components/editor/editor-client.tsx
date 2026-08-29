@@ -3,6 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import {
   CanvasBridge,
@@ -160,6 +166,42 @@ export function EditorClient({
     return () => clearInterval(timer);
   }, [mapId]);
 
+  // ── Export helpers ───────────────────────────────────────────────────
+  const safeName = title.replace(/[^\p{L}\p{N} _-]/gu, "").trim() || "peta";
+
+  function triggerDownload(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function exportPng() {
+    const handle = handleRef.current;
+    if (!handle) return;
+    try {
+      const blob = await handle.exportPng();
+      triggerDownload(blob, `${safeName}.png`);
+    } catch {
+      toast.error("Gagal ekspor PNG");
+    }
+  }
+
+  function exportJson() {
+    const handle = handleRef.current;
+    if (!handle) return;
+    const json = handle.exportJson();
+    if (!json) return;
+    triggerDownload(
+      new Blob([json], { type: "application/json" }),
+      `${safeName}.json`,
+    );
+  }
+
   async function addNode() {
     const handle = handleRef.current;
     if (!handle) {
@@ -246,6 +288,37 @@ export function EditorClient({
           )}
           <PresenceAvatars people={people} selfId={selfUserId} />
           {role === "owner" && <ShareDialog mapId={mapId} />}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="mr-1"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" x2="12" y1="15" y2="3" />
+                </svg>
+                Ekspor
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => void exportPng()}>
+                Gambar (PNG)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportJson}>
+                Data (JSON)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <span className="text-xs text-muted-foreground">
             {syncStatus === "saving"
               ? "Menyimpan…"
