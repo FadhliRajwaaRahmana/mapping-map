@@ -6,8 +6,8 @@ import Link from "next/link";
 const NAV_LINKS = [
   { href: "#features", label: "Fitur" },
   { href: "#how-it-works", label: "Cara Kerja" },
+  { href: "#testimonials", label: "Testimoni" },
   { href: "#pricing", label: "Harga" },
-  { href: "#faq", label: "FAQ" },
 ];
 
 const MOBILE_TABS = [
@@ -15,35 +15,52 @@ const MOBILE_TABS = [
     href: "#hero",
     label: "Beranda",
     icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+        <polyline points="9 22 9 12 15 12 15 22" />
+      </svg>
     ),
   },
   {
     href: "#features",
     label: "Fitur",
     icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" /><path d="M3 9h18" /><path d="M9 21V9" /></svg>
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect width="18" height="18" x="3" y="3" rx="2" />
+        <path d="M3 9h18" />
+        <path d="M9 21V9" />
+      </svg>
     ),
   },
   {
     href: "#how-it-works",
-    label: "Proses",
+    label: "Cara kerja",
     icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="12 6 12 12 16 14" />
+      </svg>
     ),
   },
   {
     href: "#pricing",
     label: "Harga",
     icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" x2="12" y1="2" y2="22" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="12" x2="12" y1="2" y2="22" />
+        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+      </svg>
     ),
   },
   {
     href: "/login",
     label: "Masuk",
     icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" /><polyline points="10 17 15 12 10 7" /><line x1="15" x2="3" y1="12" y2="12" /></svg>
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+        <polyline points="10 17 15 12 10 7" />
+        <line x1="15" x2="3" y1="12" y2="12" />
+      </svg>
     ),
   },
 ];
@@ -66,7 +83,7 @@ export function Navbar() {
   }, []);
 
   useEffect(() => {
-    const sections = ["#hero", "#features", "#how-it-works", "#pricing", "#faq"];
+    const sections = ["#hero", "#features", "#how-it-works", "#demo", "#testimonials", "#pricing", "#faq"];
     const obs = new IntersectionObserver(
       (entries) => {
         for (const e of entries) if (e.isIntersecting) setActive(`#${e.target.id}`);
@@ -93,7 +110,7 @@ export function Navbar() {
             </div>
             <span className="font-heading text-lg font-bold tracking-tight">Mapping</span>
           </Link>
-          <nav className="flex items-center gap-1">
+          <nav className="flex items-center gap-1" aria-label="Navigasi utama">
             {NAV_LINKS.map((l) => (
               <button
                 key={l.href}
@@ -115,11 +132,24 @@ export function Navbar() {
               href="/register"
               className="rounded-lg border-2 border-foreground bg-primary px-5 py-2 text-sm font-bold text-primary-foreground shadow-brutal-sm transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-brutal"
             >
-              Coba Gratis
+              Coba gratis
             </Link>
           </div>
         </div>
       </header>
+
+      {/* ── Mobile FAB — centered above bottom bar ── */}
+      <Link
+        href="/register"
+        className="fixed bottom-[calc(4rem+12px)] left-1/2 z-50 flex -translate-x-1/2 items-center gap-1.5 rounded-full border-2 border-foreground bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground shadow-brutal transition-all hover:translate-x-[calc(-50%-1px)] hover:translate-y-[-1px] hover:shadow-brutal-lg md:hidden"
+        aria-label="Coba gratis"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 5v14" />
+          <path d="M5 12h14" />
+        </svg>
+        Coba gratis
+      </Link>
 
       {/* ── Mobile bottom bar ── */}
       <nav
@@ -134,10 +164,10 @@ export function Navbar() {
               <Link
                 key={t.href}
                 href={t.href}
-                className={`flex flex-1 flex-col items-center gap-0.5 py-1 text-xs font-medium transition-colors ${isActive ? "text-primary" : "text-muted-foreground"}`}
+                className={`flex flex-1 flex-col items-center gap-0.5 py-1 text-[10px] font-medium leading-none transition-colors ${isActive ? "text-primary" : "text-muted-foreground"}`}
               >
                 {t.icon}
-                {t.label}
+                <span className="mt-0.5">{t.label}</span>
               </Link>
             );
           }
@@ -145,10 +175,10 @@ export function Navbar() {
             <button
               key={t.href}
               onClick={() => scrollTo(t.href)}
-              className={`flex flex-1 flex-col items-center gap-0.5 py-1 text-xs font-medium transition-colors ${isActive ? "text-primary" : "text-muted-foreground"}`}
+              className={`flex flex-1 flex-col items-center gap-0.5 py-1 text-[10px] font-medium leading-none transition-colors ${isActive ? "text-primary" : "text-muted-foreground"}`}
             >
               {t.icon}
-              {t.label}
+              <span className="mt-0.5">{t.label}</span>
             </button>
           );
         })}

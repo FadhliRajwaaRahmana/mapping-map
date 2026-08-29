@@ -17,6 +17,7 @@ const TIERS = [
     cta: "Mulai Gratis",
     href: "/register",
     featured: false,
+    highlight: true,
   },
   {
     name: "Pro",
@@ -26,6 +27,7 @@ const TIERS = [
     cta: "Pilih Pro",
     href: "/register",
     featured: true,
+    highlight: false,
   },
   {
     name: "Tim",
@@ -35,8 +37,9 @@ const TIERS = [
     cta: "Hubungi Kami",
     href: "/register",
     featured: false,
+    highlight: false,
   },
-];
+] as const;
 
 export function Pricing() {
   const ref = useRef<HTMLElement>(null);
@@ -59,20 +62,25 @@ export function Pricing() {
           {TIERS.map((t) => (
             <div
               key={t.name}
-              className={`price-card flex flex-col rounded-lg border-2 bg-card p-6 ${t.featured ? "border-primary shadow-brutal-lg scale-[1.02]" : "border-foreground shadow-brutal-sm"}`}
+              className={`price-card flex flex-col rounded-lg border-2 bg-card p-6 ${t.featured ? "border-primary shadow-brutal-lg md:scale-[1.02]" : t.highlight ? "border-primary/60 bg-primary/[0.04] shadow-brutal" : "border-foreground shadow-brutal-sm"}`}
             >
               {t.featured && <span className="mb-3 self-start rounded-full bg-primary px-3 py-1 text-xs font-bold text-primary-foreground">Paling Populer</span>}
+              {t.highlight && !t.featured && <span className="mb-3 self-start rounded-full border-2 border-primary bg-primary/10 px-3 py-1 text-xs font-bold text-primary">Gratis selamanya</span>}
               <h3 className="font-heading text-lg font-bold">{t.name}</h3>
               <p className="mt-2"><span className="font-heading text-3xl font-black">{t.price}</span><span className="text-sm text-muted-foreground">{t.period}</span></p>
               <ul className="mt-4 flex-1 space-y-2">
                 {t.features.map((f) => (
                   <li key={f} className="flex items-center gap-2 text-sm">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg></span>
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M20 6 9 17l-5-5" />
+                      </svg>
+                    </span>
                     {f}
                   </li>
                 ))}
               </ul>
-              <Link href={t.href} className={`mt-6 flex items-center justify-center rounded-lg border-2 border-foreground py-3 text-sm font-bold shadow-brutal-sm transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-brutal ${t.featured ? "bg-primary text-primary-foreground" : "bg-card hover:bg-muted"}`}>
+              <Link href={t.href} className={`mt-6 flex items-center justify-center rounded-lg border-2 border-foreground py-3 text-sm font-bold shadow-brutal-sm transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-brutal ${t.featured || t.highlight ? "bg-primary text-primary-foreground" : "bg-card hover:bg-muted"}`}>
                 {t.cta}
               </Link>
             </div>

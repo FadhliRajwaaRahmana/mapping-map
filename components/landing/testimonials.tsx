@@ -23,7 +23,7 @@ export function Testimonials() {
   }, { scope: ref });
 
   return (
-    <section ref={ref} className="mx-auto max-w-6xl px-4 py-20 sm:py-28">
+    <section id="testimonials" ref={ref} className="mx-auto max-w-6xl px-4 py-20 sm:py-28">
       <div className="mb-10 text-center">
         <p className="mb-2 text-sm font-bold uppercase tracking-widest text-primary">Testimoni</p>
         <h2 className="font-heading text-3xl font-bold tracking-tight sm:text-4xl">Kata mereka</h2>
