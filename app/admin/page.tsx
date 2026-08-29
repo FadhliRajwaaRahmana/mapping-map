@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { user, maps } from "@/lib/schema";
-import { count, sql, desc } from "drizzle-orm";
+import { count, sql, desc, inArray } from "drizzle-orm";
 import { StatCard } from "@/components/admin/stat-card";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +28,7 @@ export default async function AdminDashboard() {
 
   const ownerIds = [...new Set(recentMaps.map((m) => m.ownerId))];
   const owners = ownerIds.length
-    ? await db.select({ id: user.id, name: user.name }).from(user).where(sql`${user.id} IN ${sql.join(ownerIds.map((id) => sql`${id}`), sql`, `)}`)
+    ? await db.select({ id: user.id, name: user.name }).from(user).where(inArray(user.id, ownerIds))
     : [];
   const ownerById = new Map(owners.map((o) => [o.id, o.name]));
 
