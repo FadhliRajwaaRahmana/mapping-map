@@ -1,56 +1,41 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import type { ComponentType, ReactNode } from "react";
+import type { ComponentType } from "react";
 import "@excalidraw/excalidraw/index.css";
 
-export const Excalidraw = dynamic(
+const ExcalidrawWrapper = dynamic(
   () =>
-    import("@excalidraw/excalidraw").then(
-      (m) => m.Excalidraw as ComponentType<Record<string, unknown>>,
-    ),
+    import("@excalidraw/excalidraw").then((m) => {
+      const ExcalidrawComponent = m.Excalidraw;
+      const WelcomeScreenComponent = m.WelcomeScreen;
+      const FooterComponent = m.Footer;
+
+      return function ExcalidrawWithCustomChildren(props: Record<string, unknown>) {
+        return (
+          <ExcalidrawComponent {...props}>
+            <WelcomeScreenComponent>
+              <WelcomeScreenComponent.Center>
+                <WelcomeScreenComponent.Center.Heading>
+                  Petakan ide & catatan teknismu
+                </WelcomeScreenComponent.Center.Heading>
+                <WelcomeScreenComponent.Center.Menu>
+                  <WelcomeScreenComponent.Center.MenuItemHelp />
+                </WelcomeScreenComponent.Center.Menu>
+              </WelcomeScreenComponent.Center>
+            </WelcomeScreenComponent>
+            <FooterComponent>
+              <div className="flex items-center gap-2 rounded border border-foreground/20 bg-background/80 px-2 py-0.5 text-[11px] font-medium text-muted-foreground backdrop-blur-sm shadow-sm">
+                <span>
+                  Tip: Tekan <b>N</b> untuk node baru atau gunakan <b>Auto Add</b> di atas
+                </span>
+              </div>
+            </FooterComponent>
+          </ExcalidrawComponent>
+        );
+      };
+    }),
   { ssr: false },
 );
 
-type AnyComponent = ComponentType<Record<string, unknown>>;
-
-export const MainMenu = dynamic(
-  () =>
-    import("@excalidraw/excalidraw").then(
-      (m) => m.MainMenu as unknown as ComponentType<{ children?: ReactNode }>,
-    ),
-  { ssr: false },
-) as unknown as ComponentType<{ children?: ReactNode }> & {
-  Item: AnyComponent;
-  ItemLink: AnyComponent;
-  ItemCustom: AnyComponent;
-  DefaultItems: Record<string, AnyComponent>;
-  Group: AnyComponent;
-};
-
-export const WelcomeScreen = dynamic(
-  () =>
-    import("@excalidraw/excalidraw").then(
-      (m) => m.WelcomeScreen as unknown as ComponentType<{ children?: ReactNode }>,
-    ),
-  { ssr: false },
-) as unknown as ComponentType<{ children?: ReactNode }> & {
-  Center: ComponentType<{ children?: ReactNode }> & {
-    Heading: ComponentType<{ children?: ReactNode }>;
-    Menu: ComponentType<{ children?: ReactNode }>;
-    MenuItemHelp: AnyComponent;
-    MenuItem: AnyComponent;
-    MenuItemLink: AnyComponent;
-  };
-  Hints: Record<string, AnyComponent>;
-};
-
-export const Footer = dynamic(
-  () =>
-    import("@excalidraw/excalidraw").then(
-      (m) => m.Footer as unknown as ComponentType<{ children?: ReactNode }>,
-    ),
-  { ssr: false },
-);
-
-export default Excalidraw;
+export default ExcalidrawWrapper as ComponentType<Record<string, unknown>>;
