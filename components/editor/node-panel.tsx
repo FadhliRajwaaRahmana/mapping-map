@@ -16,6 +16,7 @@ type Props = {
   canEdit: boolean;
   initial: { title: string; contentMd: string };
   onClose: () => void;
+  onDeleted?: (nodeId: string) => void;
 };
 
 export function NodePanel({
@@ -24,6 +25,7 @@ export function NodePanel({
   canEdit,
   initial,
   onClose,
+  onDeleted,
 }: Props) {
   const [title, setTitle] = useState(initial.title);
   const [content, setContent] = useState(initial.contentMd);
@@ -66,6 +68,7 @@ export function NodePanel({
     try {
       await api.delete(`/api/maps/${mapId}/nodes/${nodeId}`);
       toast.success("Node dihapus");
+      onDeleted?.(nodeId);
       onClose();
     } catch (e) {
       toast.error(
