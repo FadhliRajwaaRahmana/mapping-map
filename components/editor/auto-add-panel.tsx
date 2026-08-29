@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -23,21 +23,31 @@ export function AutoAddPanel({ nodes, onAdd, canEdit, sceneElements }: Props) {
   const [shape, setShape] = useState<Shape>("rectangle");
   const [open, setOpen] = useState(false);
 
-  // Hide nodes whose canvas element is isDeleted
+  // Only show nodes whose box is actually live on canvas.
+  // If sceneElements available, dropdown follows canvas truth (fixes: deleted box still in dropdown).
   const visibleNodes = useMemo(() => {
-    if (!sceneElements) return nodes;
-    const deletedIds = new Set(
-      (sceneElements as unknown as { id: string; isDeleted?: boolean }[])
-        .filter((e) => e.isDeleted)
+    if (!sceneElements || sceneElements.length === 0) return nodes;
+    const liveIds = new Set(
+      (sceneElements as unknown as { id: string; isDeleted?: boolean; type?: string; customData?: { nodeId?: string } }[])
+        .filter((e) => !e.isDeleted && (e.type === "rectangle" || e.type === "ellipse" || e.type === "diamond"))
         .map((e) => e.id),
     );
-    return nodes.filter((n) => !deletedIds.has(n.elementId));
+    const live = nodes.filter((n) => liveIds.has(n.elementId));
+    if (live.length === 0 && nodes.length > 0) return nodes;
+    return live;
   }, [nodes, sceneElements]);
+
+  // Clear stale target when its box was deleted
+  useEffect(() => {
+    if (target && !visibleNodes.some((n) => n.elementId === target)) setTarget("");
+  }, [visibleNodes, target]);
 
   function submit() {
     const t = title.trim();
     if (!t) return;
-    onAdd(t, target || null, shape);
+    // if selected target is no longer live, send null
+    const stillLive = visibleNodes.some((n) => n.elementId === target);
+    onAdd(t, stillLive ? target || null : null, shape);
     setTitle("");
   }
 

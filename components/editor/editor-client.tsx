@@ -59,7 +59,10 @@ export function EditorClient({
   const handleRef = useRef<CanvasHandle | null>(null);
   const [openNodeId, setOpenNodeId] = useState<string | null>(null);
   const [nodes, setNodes] = useState<NodeRow[]>(initialNodes);
-  const [sceneElements, setSceneElements] = useState<readonly OrderedExcalidrawElement[]>([]);
+  const [sceneElements, setSceneElements] = useState<readonly OrderedExcalidrawElement[]>(() => {
+    const initEls = (initialScene?.elements ?? []) as unknown as readonly OrderedExcalidrawElement[];
+    return initEls;
+  });
   const canEdit = role !== "viewer";
 
   // ── Save + poll state ─────────────────────────────────────────────────
@@ -144,6 +147,11 @@ export function EditorClient({
           skipSaveRef.current = true;
           handleRef.current?.applyRemote(r.data.scene);
           setRevision(rev);
+          // keep dropdown in sync with remote scene
+          try {
+            const snap = handleRef.current?.getSnapshot();
+            if (snap) setSceneElements(snap.elements as unknown as readonly OrderedExcalidrawElement[]);
+          } catch {}
         }
       } catch {
         /* transient network error */
@@ -420,6 +428,7 @@ export function EditorClient({
                     contentMd: openNode.contentMd,
                   }}
                   onClose={() => setOpenNodeId(null)}
+                  onDeleted={(deletedId) => setNodes((prev) => prev.filter((n) => n.id !== deletedId))}
                 />
               ) : (
                 <div className="flex h-full flex-col">
