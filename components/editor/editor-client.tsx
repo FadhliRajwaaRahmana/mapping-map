@@ -24,6 +24,7 @@ import { useCreateNodeKeybinding } from "@/lib/hooks/use-create-node-keybinding"
 import { NodePanel } from "./node-panel";
 import { ShareDialog } from "@/components/maps/share-dialog";
 import { PresenceAvatars } from "./presence-avatars";
+import { AutoAddPanel } from "./auto-add-panel";
 
 export type NodeRow = {
   id: string;
@@ -224,6 +225,25 @@ export function EditorClient({
     }
   }
 
+  async function handleAutoAdd(title: string, targetElementId: string | null) {
+    const handle = handleRef.current;
+    if (!handle) { toast.error("Canvas belum siap"); return; }
+    const created = handle.addAutoNode(title, targetElementId);
+    if (!created) return;
+    try {
+      const node = await api.post<NodeRow>(`/api/maps/${mapId}/nodes`, {
+        id: created.nodeId,
+        elementId: created.elementId,
+        title,
+      });
+      setNodes((prev) => [...prev, node]);
+      setOpenNodeId(created.nodeId);
+    } catch (e) {
+      handle.removeElement(created.elementId);
+      toast.error(e instanceof ApiError ? e.message : "Gagal menyimpan node");
+    }
+  }
+
   const openNode = openNodeId
     ? nodes.find((n) => n.id === openNodeId)
     : undefined;
@@ -304,6 +324,7 @@ export function EditorClient({
           )}
 
           {/* Presence */}
+          <AutoAddPanel nodes={nodes} onAdd={(title, tid) => void handleAutoAdd(title, tid)} canEdit={canEdit} />
           <PresenceAvatars people={people} selfId={selfUserId} />
 
           {/* Share dialog — owner only */}

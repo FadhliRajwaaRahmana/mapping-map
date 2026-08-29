@@ -28,6 +28,8 @@ export type SceneSnapshot = {
 export type CanvasHandle = {
   /** Create a labeled rectangle node at the viewport center. Returns ids or null. */
   addNodeAtCenter(title: string): { nodeId: string; elementId: string } | null;
+  /** Auto-add node near target with optional arrow to target. */
+  addAutoNode(title: string, targetElementId?: string | null): { nodeId: string; elementId: string } | null;
   /** Apply a remote persisted scene WITHOUT polluting local undo/redo. */
   applyRemote(remote: ScenePayload): void;
   /** Soft-delete an element by id (used to roll back a failed node save). */
@@ -89,6 +91,75 @@ export function CanvasBridge({
           a.updateScene({
             elements: [...a.getSceneElements(), ...created],
             captureUpdate: CaptureUpdateAction.IMMEDIATELY, // user action → undoable
+          });
+          return { nodeId, elementId };
+        },
+        addAutoNode(title, targetElementId) {
+          const a = apiRef.current;
+          if (!a) return null;
+          const nodeId = newId();
+          const els = a.getSceneElements() as unknown as { id: string; x: number; y: number; width: number; height: number; type: string }[];
+          let x: number, y: number;
+          if (targetElementId) {
+            const target = els.find((e) => e.id === targetElementId);
+            if (target) {
+              // Place to the right of target, with slight vertical spread based on existing children count
+              const siblings = els.filter((e) => e.type === "rectangle").length;
+              const row = siblings % 3;
+              x = target.x + target.width + 40;
+              y = target.y + row * 110 - 55;
+            } else {
+              const st = a.getAppState();
+              x = -st.scrollX + st.width / 2 - 100;
+              y = -st.scrollY + st.height / 2 - 40;
+            }
+          } else if (els.length > 0) {
+            // No target: place near last rectangle to the right
+            const rects = els.filter((e) => e.type === "rectangle");
+            const last = rects[rects.length - 1];
+            if (last) {
+              x = last.x + last.width + 40;
+              y = last.y;
+            } else {
+              const st = a.getAppState();
+              x = -st.scrollX + st.width / 2 - 100;
+              y = -st.scrollY + st.height / 2 - 40;
+            }
+          } else {
+            const st = a.getAppState();
+            x = -st.scrollX + st.width / 2 - 100;
+            y = -st.scrollY + st.height / 2 - 40;
+          }
+          const elements: unknown[] = [
+            {
+              type: "rectangle",
+              x, y,
+              width: 220, height: 80,
+              backgroundColor: "#a5d8ff",
+              strokeColor: "#1971c2",
+              customData: { nodeId },
+              label: { text: title, fontSize: 16 },
+            },
+          ];
+          if (targetElementId) {
+            const target = els.find((e) => e.id === targetElementId);
+            if (target) {
+              elements.push({
+                type: "arrow",
+                x: target.x + target.width,
+                y: target.y + target.height / 2,
+                width: x - (target.x + target.width),
+                height: y + 40 - (target.y + target.height / 2),
+                points: [[0, 0], [x - (target.x + target.width), y + 40 - (target.y + target.height / 2)]],
+                startBinding: { elementId: targetElementId, focus: 0, gap: 4 },
+              } as unknown as Record<string, unknown>);
+            }
+          }
+          const created = convertToExcalidrawElements(elements as never[]);
+          const elementId = created[0]?.id ?? "";
+          a.updateScene({
+            elements: [...a.getSceneElements(), ...created],
+            captureUpdate: CaptureUpdateAction.IMMEDIATELY,
           });
           return { nodeId, elementId };
         },
