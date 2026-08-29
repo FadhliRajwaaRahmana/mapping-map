@@ -160,7 +160,7 @@ export function CanvasBridge({
               backgroundColor: "#a5d8ff",
               strokeColor: "#1971c2",
               customData: { nodeId },
-              label: { text: title, fontSize: 16 },
+              label: { text: title, fontSize: 16, fontFamily: 1 },
             },
           ];
           if (targetElementId) {
@@ -197,11 +197,14 @@ export function CanvasBridge({
               focus: 0,
               gap: 8,
             };
+            // preserve label explicitly before binding mutation
+            const origLabel = (newNode as Record<string, unknown>).label;
             const newNodeBound = [
               ...(((newNode.boundElements as unknown[]) ?? []) as unknown[]),
               { id: arrow.id as string, type: "arrow" },
             ] as unknown[];
             (newNode as Record<string, unknown>).boundElements = newNodeBound;
+            if (origLabel) (newNode as Record<string, unknown>).label = origLabel;
             const existing = a.getSceneElements() as unknown as Record<string, unknown>[];
             const arrowId = arrow.id as string;
             const patchedExisting = existing.map((el) => {
