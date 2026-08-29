@@ -11,6 +11,7 @@ import {
 } from "./canvas-bridge";
 import type { ScenePayload } from "@/lib/scene";
 import { api, ApiError } from "@/lib/api-client";
+import { useCreateNodeKeybinding } from "@/lib/hooks/use-create-node-keybinding";
 
 export type NodeRow = {
   id: string;
@@ -76,6 +77,13 @@ export function EditorClient({
   const openNode = openNodeId
     ? nodes.find((n) => n.id === openNodeId)
     : undefined;
+
+  // N keybinding — disabled when the panel is open (user might be typing)
+  const addNodeCb = useCallback(() => {
+    void addNode();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // handleRef (stable ref) + mapId (stable per page) are safe to capture
+  useCreateNodeKeybinding(addNodeCb, canEdit && !openNodeId);
 
   return (
     <div className="flex h-screen flex-col">
