@@ -997,7 +997,7 @@ git commit -m "feat: auth pages (register/login/reset) + api client + toaster"
 - [ ] **Step 1: Create `components/landing/features.tsx`**
 
 ```tsx
-import { Link } from "next/link";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -1093,7 +1093,7 @@ export function DemoCanvas() {
 "use client";
 
 import { motion } from "framer-motion";
-import { Link } from "next/link";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { DemoCanvas } from "./demo-canvas";
 
@@ -1730,44 +1730,70 @@ export function MapCard({ map }: { map: MapItem }) {
 
   return (
     <Card className="group relative">
-      <Link href={`/maps/${map.id}`} className="block">
-        <CardContent className="pt-5">
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="font-semibold leading-tight">{map.title}</h3>
-            {map.role === "owner" && (
+      {/* Link covers the card; the "···" menu sits in a relative container above it
+          (a <button> inside <a> would be invalid HTML). stopPropagation on the
+          menu click so opening it doesn't navigate. */}
+      <Link
+        href={`/maps/${map.id}`}
+        className="absolute inset-0 z-0 rounded-md"
+        aria-label={`Buka peta ${map.title}`}
+      />
+      <CardContent className="relative z-10 pt-5">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="font-semibold leading-tight">{map.title}</h3>
+          {map.role === "owner" && (
+            <div className="relative z-20" onClick={(e) => e.stopPropagation()}>
               <DropdownMenu>
                 <DropdownMenuTrigger className="rounded-md p-1 opacity-60 hover:bg-muted group-hover:opacity-100">
                   <span className="sr-only">Opsi</span>···
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => patch({ isArchived: !map.isArchived })}>
+                  <DropdownMenuItem onClick={() => void patch({ isArchived: !map.isArchived })}>
                     {map.isArchived ? "Unarchive" : "Arsipkan"}
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="text-destructive" onClick={remove}>
+                  <DropdownMenuItem className="text-destructive" onClick={() => void remove()}>
                     Hapus
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-            )}
-          </div>
-          <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{map.description || "—"}</p>
-          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-            <Badge variant={map.role === "owner" ? "default" : "secondary"}>
-              {map.role === "owner" ? "Milik saya" : map.role === "editor" ? "Editor" : "Viewer"}
-            </Badge>
-            {map.isArchived && <Badge variant="outline">Arsip</Badge>}
-            <span>{new Date(map.updatedAt).toLocaleDateString("id-ID")}</span>
-          </div>
-        </CardContent>
-      </Link>
+            </div>
+          )}
+        </div>
+        <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{map.description || "—"}</p>
+        <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+          <Badge variant={map.role === "owner" ? "default" : "secondary"}>
+            {map.role === "owner" ? "Milik saya" : map.role === "editor" ? "Editor" : "Viewer"}
+          </Badge>
+          {map.isArchived && <Badge variant="outline">Arsip</Badge>}
+          <span>{new Date(map.updatedAt).toLocaleDateString("id-ID")}</span>
+        </div>
+      </CardContent>
     </Card>
   );
 }
 ```
+> **Why the overlay-Link pattern:** the card opens the editor on click, but the "···" menu must stay clickable without navigating. An absolutely-positioned `<Link>` (z-0) under the content (z-10) + a `stopPropagation` wrapper (z-20) around the menu achieves that with valid HTML. `Button` import is not used in this file — do not add it.
 
-- [ ] **Step 4: Verify dashboard in browser**
+- [ ] **Step 4: Verify dashboard (NO interactive browser — use build + curl)**
 
-Run `npm run dev`. Register a new account → `/maps` → create a map via the dialog → card appears with role "Milik saya". Archive & delete via the `···` menu work (card disappears/updates).
+1. `npm run build` — must succeed (catches the (auth)/maps wiring + client/server boundaries).
+2. `npm run dev`, then drive the real API flow with curl (the dialog/card are thin wrappers over these endpoints — verifying the endpoints + page HTML verifies the dashboard behavior):
+```bash
+# unauthenticated /maps must redirect to /login (307/308)
+curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" http://localhost:3000/maps
+# register + capture cookie
+curl -s -c /tmp/dash-cookies.txt -X POST http://localhost:3000/api/auth/sign-up/email \
+  -H "content-type: application/json" -H "origin: http://localhost:3000" \
+  -d "{\"name\":\"Dash User\",\"email\":\"dash-$(date +%s)@example.com\",\"password\":\"Password123!\"}"
+# create a map
+curl -s -b /tmp/dash-cookies.txt -X POST http://localhost:3000/api/maps \
+  -H "content-type: application/json" -d '{"title":"Peta Dashboard","description":""}'
+# list shows it
+curl -s -b /tmp/dash-cookies.txt http://localhost:3000/api/maps
+# dashboard page itself renders for the authed user (contains "Peta Saya")
+curl -s -b /tmp/dash-cookies.txt http://localhost:3000/maps | grep -o "Peta Saya"
+```
+3. STOP the dev server; confirm port 3000 free (`netstat -ano | grep :3000`; `taskkill //PID <pid> //F` if needed).
 
 - [ ] **Step 5: Commit**
 
@@ -1973,10 +1999,11 @@ git commit -m "feat: scene helpers (toScenePayload/mergeScenes/size caps) + unit
 
 ---
 
-### Task 9: Editor page + CanvasBridge (the Excalidraw wrapper)
+### Task 9: Editor page + CanvasBridge + nodes list/create API
 
 **Files:**
-- Create: `components/editor/excalidraw-lazy.tsx`, `components/editor/canvas-bridge.tsx`, `components/editor/editor-client.tsx`, `app/maps/[id]/page.tsx`
+- Create: `components/editor/excalidraw-lazy.tsx`, `components/editor/canvas-bridge.tsx`, `components/editor/editor-client.tsx`, `app/maps/[id]/page.tsx`, `app/api/maps/[id]/nodes/route.ts`
+- Modify: `lib/validators.ts` (add `createNodeFullSchema`)
 
 - [ ] **Step 1: Create `components/editor/excalidraw-lazy.tsx` (SSR-off loader + CSS)**
 
@@ -2357,20 +2384,124 @@ export function EditorClient({
 ```
 > Task 9 uses a placeholder aside (the Markdown `NodePanel` is created and mounted in Task 11 — importing it here would break compilation). The `openNode` lookup is intentionally omitted in this step.
 
-- [ ] **Step 5: Verify the editor shell in the browser**
+- [ ] **Step 5: Create the nodes list/create API (the editor's "+ Node" POSTs to it — it must exist in THIS task or the button can't be verified)**
 
-Run `npm run dev`, create a map from `/maps`, open it:
-- The Excalidraw canvas renders (whiteboard toolbar visible) — NOT blank (if blank: container has zero height, or the CSS import is missing — both are covered above).
-- Click "+ Node" → a blue labeled rectangle appears at center → the placeholder aside shows the nodeId. Click the rectangle again → aside stays; click empty canvas → aside closes.
-- Click the new rectangle → panel stays open (same nodeId). Click empty canvas → panel closes.
-- Refresh: the node rectangle is still there (canvas is persisted in Task 12 — at THIS step the canvas is still unsaved, so a refresh is expected to be blank; only the `map_nodes` row exists. Do not treat a blank canvas here as a bug.)
+Append to `lib/validators.ts`:
+```ts
+export const createNodeFullSchema = z.object({
+  id: z.string().uuid(),
+  elementId: z.string().trim().min(1).max(100),
+  title: z.string().trim().min(1).max(300).default("Tanpa judul"),
+});
+```
+> The client generates the node id (`newId()`) so the element id and the node row can be created in one POST; the server only validates.
 
-- [ ] **Step 6: Commit**
+Create `app/api/maps/[id]/nodes/route.ts`:
+```ts
+import { db } from "@/lib/db";
+import { mapNodes } from "@/lib/schema";
+import { requireMapRole } from "@/lib/guards";
+import { createNodeFullSchema } from "@/lib/validators";
+import { eq } from "drizzle-orm";
+
+export const runtime = "nodejs";
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params;
+  const res = await requireMapRole(id, "viewer");
+  if (!res.ok) return Response.json(res.body, { status: res.status });
+  const rows = await db.select().from(mapNodes).where(eq(mapNodes.mapId, id));
+  return Response.json({
+    data: rows.map((n) => ({ id: n.id, elementId: n.elementId, title: n.title, contentMd: n.contentMd, updatedAt: n.updatedAt })),
+  });
+}
+
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params;
+  const res = await requireMapRole(id, "editor");
+  if (!res.ok) return Response.json(res.body, { status: res.status });
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: "validation", message: "Body JSON tidak valid." }, { status: 400 });
+  }
+  const parsed = createNodeFullSchema.safeParse(body);
+  if (!parsed.success) {
+    return Response.json(
+      { error: "validation", message: parsed.error.issues[0]?.message ?? "Data tidak valid." },
+      { status: 400 },
+    );
+  }
+  const now = Date.now();
+  try {
+    await db.insert(mapNodes).values({
+      id: parsed.data.id,
+      mapId: id,
+      elementId: parsed.data.elementId,
+      title: parsed.data.title,
+      createdAt: now,
+      updatedAt: now,
+      updatedBy: res.user.id,
+    });
+  } catch {
+    // unique violation on (mapId, elementId)
+    return Response.json({ error: "conflict", message: "Node untuk elemen ini sudah ada." }, { status: 409 });
+  }
+  return Response.json(
+    { data: { id: parsed.data.id, elementId: parsed.data.elementId, title: parsed.data.title, contentMd: "", updatedAt: now } },
+    { status: 201 },
+  );
+}
+```
+
+- [ ] **Step 6: Verify the editor (NO interactive browser — build + curl)**
+
+1. `npm run build` — must succeed (the maps/[id] route + client components compile).
+2. `npm run dev`, then drive the flow with curl (the canvas click interactions are covered by the e2e in Task 17; here verify the page + the node API the "+ Node" button depends on):
+```bash
+# unauthenticated editor must redirect to /login
+curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" http://localhost:3000/maps/someid
+# register + create a map
+curl -s -c /tmp/ed-cookies.txt -X POST http://localhost:3000/api/auth/sign-up/email \
+  -H "content-type: application/json" -H "origin: http://localhost:3000" \
+  -d "{\"name\":\"Ed User\",\"email\":\"ed-$(date +%s)@example.com\",\"password\":\"Password123!\"}"
+MAPID=$(curl -s -b /tmp/ed-cookies.txt -X POST http://localhost:3000/api/maps \
+  -H "content-type: application/json" -d '{"title":"Editor Uji"}' \
+  | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).data.id))")
+echo "MAPID=$MAPID"
+# editor page renders for the owner (contains the map title)
+curl -s -b /tmp/ed-cookies.txt http://localhost:3000/maps/$MAPID | grep -o "Editor Uji"
+# node create — the exact endpoint the "+ Node" button posts to
+NODEID=$(node -e "console.log(crypto.randomUUID())")
+curl -s -b /tmp/ed-cookies.txt -X POST http://localhost:3000/api/maps/$MAPID/nodes \
+  -H "content-type: application/json" -d "{\"id\":\"$NODEID\",\"elementId\":\"el-1\",\"title\":\"Node baru\"}"
+# node listed
+curl -s -b /tmp/ed-cookies.txt http://localhost:3000/api/maps/$MAPID/nodes
+# stranger cannot create (403) — regression guard for the IDOR fix in Task 3
+curl -s -c /tmp/str-cookies.txt -X POST http://localhost:3000/api/auth/sign-up/email \
+  -H "content-type: application/json" -H "origin: http://localhost:3000" \
+  -d "{\"name\":\"Stranger\",\"email\":\"str-$(date +%s)@example.com\",\"password\":\"Password123!\"}"
+curl -s -o /dev/null -w "stranger node create: %{http_code}\n" -b /tmp/str-cookies.txt \
+  -X POST http://localhost:3000/api/maps/$MAPID/nodes \
+  -H "content-type: application/json" -d "{\"id\":\"$(node -e "console.log(crypto.randomUUID())")\",\"elementId\":\"el-x\",\"title\":\"hack\"}"
+```
+Expected: 307/308 redirect for anon; editor page HTML contains "Editor Uji"; node create → 201; list shows the node; **stranger node create: 403**.
+3. STOP the dev server; confirm port 3000 free (`taskkill //PID <pid> //F` if a child node holds it).
+
+- [ ] **Step 7: Commit**
 
 ```bash
 git add -A
-git commit -m "feat: editor page + CanvasBridge (excalidraw 0.18.1) + node click/create shell"
+git commit -m "feat: editor page + CanvasBridge (excalidraw 0.18.1) + nodes list/create API"
 ```
+> The canvas's visual behavior (click node → panel opens, "+ Node" button creates + opens) is verified in a real browser by the e2e in Task 17; this step verifies the page wiring + the node API the button depends on.
 
 ---
 
@@ -2437,91 +2568,14 @@ git commit -m "feat: N keybinding for node creation (window listener, 0.18.1-saf
 
 ---
 
-### Task 11: Nodes API + Markdown node panel
+### Task 11: Node detail API + Markdown node panel
+
+> The nodes list/create route (`app/api/maps/[id]/nodes/route.ts`) and `createNodeFullSchema` were created in Task 9 (the editor's "+ Node" depends on them). This task adds the per-node route + the Markdown panel.
 
 **Files:**
-- Create: `app/api/maps/[id]/nodes/route.ts`, `app/api/maps/[id]/nodes/[nodeId]/route.ts`, `components/markdown/markdown-editor.tsx`, `components/markdown/markdown-view.tsx`, `components/editor/node-panel.tsx`, `lib/hooks/use-debounced-callback.ts`
-- Modify: `lib/validators.ts` (add `createNodeFullSchema`)
+- Create: `app/api/maps/[id]/nodes/[nodeId]/route.ts`, `components/markdown/markdown-editor.tsx`, `components/markdown/markdown-view.tsx`, `components/editor/node-panel.tsx`, `lib/hooks/use-debounced-callback.ts`
 
-- [ ] **Step 1: Add the node-creation validator (client pre-generates the id)**
-
-Append to `lib/validators.ts`:
-```ts
-export const createNodeFullSchema = z.object({
-  id: z.string().uuid(),
-  elementId: z.string().trim().min(1).max(100),
-  title: z.string().trim().min(1).max(300).default("Tanpa judul"),
-});
-```
-> The client generates the node id (`newId()`) so the element id and the node row can be created in one POST; the server only validates.
-
-- [ ] **Step 2: Create `app/api/maps/[id]/nodes/route.ts`**
-
-```ts
-import { db } from "@/lib/db";
-import { mapNodes } from "@/lib/schema";
-import { requireMapRole } from "@/lib/guards";
-import { createNodeFullSchema } from "@/lib/validators";
-import { eq } from "drizzle-orm";
-
-export const runtime = "nodejs";
-
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const res = await requireMapRole(id, "viewer");
-  if (!res.ok) return Response.json(res.body, { status: res.status });
-  const rows = await db.select().from(mapNodes).where(eq(mapNodes.mapId, id));
-  return Response.json({
-    data: rows.map((n) => ({ id: n.id, elementId: n.elementId, title: n.title, contentMd: n.contentMd, updatedAt: n.updatedAt })),
-  });
-}
-
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const res = await requireMapRole(id, "editor");
-  if (!res.ok) return Response.json(res.body, { status: res.status });
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: "validation", message: "Body JSON tidak valid." }, { status: 400 });
-  }
-  const parsed = createNodeFullSchema.safeParse(body);
-  if (!parsed.success) {
-    return Response.json(
-      { error: "validation", message: parsed.error.issues[0]?.message ?? "Data tidak valid." },
-      { status: 400 },
-    );
-  }
-  const now = Date.now();
-  try {
-    await db.insert(mapNodes).values({
-      id: parsed.data.id,
-      mapId: id,
-      elementId: parsed.data.elementId,
-      title: parsed.data.title,
-      createdAt: now,
-      updatedAt: now,
-      updatedBy: res.user.id,
-    });
-  } catch {
-    // unique violation on (mapId, elementId)
-    return Response.json({ error: "conflict", message: "Node untuk elemen ini sudah ada." }, { status: 409 });
-  }
-  return Response.json(
-    { data: { id: parsed.data.id, elementId: parsed.data.elementId, title: parsed.data.title, contentMd: "", updatedAt: now } },
-    { status: 201 },
-  );
-}
-```
-
-- [ ] **Step 3: Create `app/api/maps/[id]/nodes/[nodeId]/route.ts`**
+- [ ] **Step 1: Create `app/api/maps/[id]/nodes/[nodeId]/route.ts`**
 
 ```ts
 import { db } from "@/lib/db";
@@ -2587,7 +2641,7 @@ export async function DELETE(request: Request, { params }: Ctx) {
 }
 ```
 
-- [ ] **Step 4: Create the Markdown editor + view components**
+- [ ] **Step 2: Create the Markdown editor + view components**
 
 `components/markdown/markdown-editor.tsx`:
 ```tsx
@@ -2650,7 +2704,7 @@ export function MarkdownView({ markdown }: { markdown: string }) {
 ```
 > react-markdown v10: no `className` prop (wrap in a styled div). Raw HTML is disabled by default — no sanitizer needed. `@tailwindcss/typography` (Task 1) powers the `prose` classes.
 
-- [ ] **Step 5: Create `lib/hooks/use-debounced-callback.ts`**
+- [ ] **Step 3: Create `lib/hooks/use-debounced-callback.ts`**
 
 ```ts
 "use client";
@@ -2674,7 +2728,7 @@ export function useDebouncedCallback<T>(value: T, ms: number, fn: (latest: T) =>
 }
 ```
 
-- [ ] **Step 6: Create `components/editor/node-panel.tsx`**
+- [ ] **Step 4: Create `components/editor/node-panel.tsx`**
 
 ```tsx
 "use client";
@@ -2798,7 +2852,7 @@ export function NodePanel({ mapId, nodeId, canEdit, initial, onClose }: Props) {
 ```
 > **Cursor-safety:** the panel's local state is the source of truth while open; the debounced save only PUSHES to the server (never re-pulls into the editor), so the cursor never jumps while typing. A remote revision arriving at the canvas (Task 12) updates other editors' canvases but NOT this open editor's text — by design.
 
-- [ ] **Step 7: Mount the real panel in `editor-client.tsx` (replace the Task 9 placeholder)**
+- [ ] **Step 5: Mount the real panel in `editor-client.tsx` (replace the Task 9 placeholder)**
 
 Replace the placeholder `<aside>` block (the one showing `Node <code>{openNodeId}</code> terbuka…`) with:
 ```tsx
@@ -2831,18 +2885,50 @@ const openNode = openNodeId ? initialNodes.find((n) => n.id === openNodeId) : un
 ```
 Add `import { NodePanel } from "./node-panel";`. The `key={openNodeId}` remounts the panel per node (clean local state).
 
-- [ ] **Step 8: Verify in browser**
+- [ ] **Step 6: Verify (NO interactive browser — build + curl)**
 
-- Add a node → panel opens with empty Markdown. Type `## Riset\n- API mengambil kolom \`users.id\`` → wait ~1s → DevTools Network shows `PATCH /api/maps/<id>/nodes/<nodeId>` with the content.
-- Switch to Pratinjau → renders GFM (heading + list).
-- Delete the node → confirm → panel closes. Verify the row is gone: `fetch('/api/maps/<id>/nodes', {credentials:'include'}).then(r=>r.json())` in the console returns `[]`.
-- Reload the page, re-add a node, wait, then reload again and click the node's rectangle → its saved Markdown is present in the panel (the rectangle itself only survives a reload from Task 12 on — if it's gone now, that is expected; the `map_nodes` row is what you're verifying here).
+1. `npm run build` — must succeed (node-panel + markdown components compile).
+2. `npm run dev`, then verify the per-node endpoints with curl (the panel's visual behavior — CodeMirror typing, GFM preview, delete confirm — is covered by the e2e in Task 17):
+```bash
+# register owner + create a map
+curl -s -c /tmp/n1-cookies.txt -X POST http://localhost:3000/api/auth/sign-up/email \
+  -H "content-type: application/json" -H "origin: http://localhost:3000" \
+  -d "{\"name\":\"N1 User\",\"email\":\"n1-$(date +%s)@example.com\",\"password\":\"Password123!\"}"
+MAPID=$(curl -s -b /tmp/n1-cookies.txt -X POST http://localhost:3000/api/maps \
+  -H "content-type: application/json" -d '{"title":"Node Uji"}' \
+  | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).data.id))")
+NODEID=$(node -e "console.log(crypto.randomUUID())")
+# create the node row (Task 9 endpoint)
+curl -s -b /tmp/n1-cookies.txt -X POST http://localhost:3000/api/maps/$MAPID/nodes \
+  -H "content-type: application/json" -d "{\"id\":\"$NODEID\",\"elementId\":\"el-1\",\"title\":\"Riset\"}"
+# GET the node
+curl -s -b /tmp/n1-cookies.txt http://localhost:3000/api/maps/$MAPID/nodes/$NODEID
+# PATCH markdown (the exact call the panel's autosave makes)
+curl -s -b /tmp/n1-cookies.txt -X PATCH http://localhost:3000/api/maps/$MAPID/nodes/$NODEID \
+  -H "content-type: application/json" -d '{"contentMd":"## Riset\n- API mengambil kolom `users.id`"}'
+# DELETE the node
+curl -s -b /tmp/n1-cookies.txt -X DELETE http://localhost:3000/api/maps/$MAPID/nodes/$NODEID
+# gone
+curl -s -o /dev/null -w "after delete: %{http_code}\n" -b /tmp/n1-cookies.txt http://localhost:3000/api/maps/$MAPID/nodes/$NODEID
+# non-collaborator cannot patch (403)
+curl -s -c /tmp/n1-str.txt -X POST http://localhost:3000/api/auth/sign-up/email \
+  -H "content-type: application/json" -H "origin: http://localhost:3000" \
+  -d "{\"name\":\"N1 Str\",\"email\":\"n1str-$(date +%s)@example.com\",\"password\":\"Password123!\"}"
+NODEID2=$(node -e "console.log(crypto.randomUUID())")
+curl -s -b /tmp/n1-cookies.txt -X POST http://localhost:3000/api/maps/$MAPID/nodes \
+  -H "content-type: application/json" -d "{\"id\":\"$NODEID2\",\"elementId\":\"el-2\",\"title\":\"x\"}" > /dev/null
+curl -s -o /dev/null -w "stranger patch: %{http_code}\n" -b /tmp/n1-str.txt \
+  -X PATCH http://localhost:3000/api/maps/$MAPID/nodes/$NODEID2 \
+  -H "content-type: application/json" -d '{"contentMd":"hack"}'
+```
+Expected: GET → 200 node; PATCH → 200 with the new contentMd; DELETE → 200; after delete → 404; **stranger patch: 403**.
+3. STOP the dev server; confirm port 3000 free.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add -A
-git commit -m "feat: nodes API (CRUD) + Markdown node panel (CodeMirror + GFM preview, autosave)"
+git -c user.name="Developer" -c user.email="developer@local" commit -m "feat: node detail API (GET/PATCH/DELETE) + Markdown node panel (CodeMirror + GFM preview, autosave)"
 ```
 
 ---
