@@ -218,15 +218,19 @@ export function EditorClient({
     }
   }
 
-  function exportJson() {
+  async function exportJson() {
     const handle = handleRef.current;
     if (!handle) return;
-    const json = handle.exportJson();
-    if (!json) return;
-    triggerDownload(
-      new Blob([json], { type: "application/json" }),
-      `${safeName}.json`,
-    );
+    try {
+      const json = await handle.exportJson();
+      if (!json) return;
+      triggerDownload(
+        new Blob([json], { type: "application/json" }),
+        `${safeName}.json`,
+      );
+    } catch {
+      toast.error("Gagal ekspor JSON");
+    }
   }
 
   async function addNode() {
@@ -235,9 +239,9 @@ export function EditorClient({
       toast.error("Canvas belum siap");
       return;
     }
-    const created = handle.addNodeAtCenter("Node baru");
-    if (!created) return;
     try {
+      const created = await handle.addNodeAtCenter("Node baru");
+      if (!created) return;
       const node = await api.post<NodeRow>(`/api/maps/${mapId}/nodes`, {
         id: created.nodeId,
         elementId: created.elementId,
@@ -246,7 +250,6 @@ export function EditorClient({
       setNodes((prev) => [...prev, node]);
       setOpenNodeId(created.nodeId);
     } catch (e) {
-      handle.removeElement(created.elementId);
       toast.error(e instanceof ApiError ? e.message : "Gagal menyimpan node");
     }
   }
@@ -256,9 +259,9 @@ export function EditorClient({
     if (!raw) return;
     const handle = handleRef.current;
     if (!handle) { toast.error("Canvas belum siap"); return; }
-    const created = handle.addAutoNode(raw, targetElementId, shape);
-    if (!created) { toast.error("Gagal menambah node di canvas"); return; }
     try {
+      const created = await handle.addAutoNode(raw, targetElementId, shape);
+      if (!created) { toast.error("Gagal menambah node di canvas"); return; }
       const node = await api.post<NodeRow>(`/api/maps/${mapId}/nodes`, {
         id: created.nodeId,
         elementId: created.elementId,
@@ -267,7 +270,6 @@ export function EditorClient({
       setNodes((prev) => [...prev, node]);
       setOpenNodeId(created.nodeId);
     } catch (e) {
-      handle.removeElement(created.elementId);
       toast.error(e instanceof ApiError ? e.message : "Gagal menyimpan node");
     }
   }
@@ -397,7 +399,7 @@ export function EditorClient({
               <DropdownMenuItem onClick={() => void exportSvg()}>
                 Vektor (SVG)
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={exportJson}>
+              <DropdownMenuItem onClick={() => void exportJson()}>
                 Data (JSON)
               </DropdownMenuItem>
             </DropdownMenuContent>

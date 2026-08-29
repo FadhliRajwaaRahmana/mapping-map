@@ -2,14 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTheme } from "next-themes";
-import {
-  CaptureUpdateAction,
-  convertToExcalidrawElements,
-  exportToBlob,
-  exportToSvg,
-  serializeAsJSON,
-  MIME_TYPES,
-} from "@excalidraw/excalidraw";
 import type {
   AppState,
   BinaryFiles,
@@ -19,6 +11,12 @@ import type {
 import type { OrderedExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import { newId } from "@/lib/utils";
 import { mergeScenes, type ScenePayload } from "@/lib/scene-client";
+import {
+  convertElements,
+  exportSceneToBlob,
+  exportSceneToSvg,
+  exportSceneToJson,
+} from "@/lib/excalidraw-client-wrapper";
 import { api } from "@/lib/api-client";
 import { toast } from "sonner";
 import ExcalidrawLazy from "./excalidraw-lazy";
@@ -33,13 +31,13 @@ export type NodeShape = "rectangle" | "ellipse" | "diamond";
 
 export type CanvasHandle = {
   /** Create a labeled rectangle node at the viewport center. Returns ids or null. */
-  addNodeAtCenter(title: string): { nodeId: string; elementId: string } | null;
+  addNodeAtCenter(title: string): Promise<{ nodeId: string; elementId: string } | null>;
   /** Auto-add node near target with optional arrow to target. Arrow is bound on both ends so it follows when boxes move. */
   addAutoNode(
     title: string,
     targetElementId?: string | null,
     shape?: NodeShape,
-  ): { nodeId: string; elementId: string } | null;
+  ): Promise<{ nodeId: string; elementId: string } | null>;
   /** Apply a remote persisted scene WITHOUT polluting local undo/redo. */
   applyRemote(remote: ScenePayload): void;
   /** Soft-delete an element by id (used to roll back a failed node save). */
@@ -51,7 +49,7 @@ export type CanvasHandle = {
   /** SVG of the whole scene as a string. */
   exportSvg(): Promise<string>;
   /** JSON of the whole scene as a string. */
-  exportJson(): string | null;
+  exportJson(): Promise<string>;
   /** Toggle read-only imperatively (prop toggle would remount and lose state). */
   setViewMode(view: boolean): void;
 };
@@ -125,14 +123,14 @@ export function CanvasBridge({
     (apiInstance: ExcalidrawImperativeAPI) => {
       apiRef.current = apiInstance;
       (handleRef as React.MutableRefObject<CanvasHandle | null>).current = {
-        addNodeAtCenter(title) {
+        async addNodeAtCenter(title) {
           const a = apiRef.current;
           if (!a) return null;
           const nodeId = newId();
           const st = a.getAppState();
           const x = -st.scrollX + st.width / 2 - 100;
           const y = -st.scrollY + st.height / 2 - 40;
-          const created = convertToExcalidrawElements([
+          const created = await convertElements([
             {
               type: "rectangle",
               x,
@@ -149,11 +147,11 @@ export function CanvasBridge({
           const elementId = container?.id ?? created[0]?.id ?? "";
           a.updateScene({
             elements: [...a.getSceneElements(), ...created],
-            captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+            captureUpdate: "IMMEDIATELY",
           });
           return { nodeId, elementId };
         },
-        addAutoNode(title, targetElementId, shape = "rectangle") {
+        async addAutoNode(title, targetElementId, shape = "rectangle") {
           const a = apiRef.current;
           if (!a) return null;
           const nodeId = newId();
@@ -232,7 +230,7 @@ export function CanvasBridge({
             }
           }
 
-          const convertedAll = convertToExcalidrawElements(
+          const convertedAll = await convertElements(
             [...currentElements, ...newSkeleton] as never[],
             { regenerateIds: false },
           );
@@ -242,7 +240,7 @@ export function CanvasBridge({
 
           a.updateScene({
             elements: convertedAll,
-            captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+            captureUpdate: "IMMEDIATELY",
           });
 
           return { nodeId, elementId };
@@ -262,7 +260,7 @@ export function CanvasBridge({
           a.updateScene({
             elements,
             appState: remote.appState as unknown as AppState,
-            captureUpdate: CaptureUpdateAction.NEVER,
+            captureUpdate: "NEVER",
           });
         },
         removeElement(elementId) {
@@ -272,7 +270,7 @@ export function CanvasBridge({
             elements: a.getSceneElements().map((el) =>
               el.id === elementId ? { ...el, isDeleted: true } : el,
             ),
-            captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+            captureUpdate: "IMMEDIATELY",
           });
         },
         getSnapshot() {
@@ -287,27 +285,25 @@ export function CanvasBridge({
         exportPng() {
           const a = apiRef.current;
           if (!a) return Promise.reject(new Error("canvas not ready"));
-          return exportToBlob({
-            elements: a.getSceneElements() as never[],
+          return exportSceneToBlob({
+            elements: a.getSceneElements(),
             appState: a.getAppState(),
             files: a.getFiles(),
-            mimeType: MIME_TYPES.png,
           });
         },
-        async exportSvg() {
+        exportSvg() {
           const a = apiRef.current;
-          if (!a) throw new Error("canvas not ready");
-          const svgEl = await exportToSvg({
-            elements: a.getSceneElements() as never[],
+          if (!a) return Promise.reject(new Error("canvas not ready"));
+          return exportSceneToSvg({
+            elements: a.getSceneElements(),
             appState: a.getAppState(),
             files: a.getFiles(),
           });
-          return svgEl.outerHTML;
         },
         exportJson() {
           const a = apiRef.current;
-          if (!a) return null;
-          return serializeAsJSON(a.getSceneElements(), a.getAppState(), a.getFiles(), "database");
+          if (!a) return Promise.reject(new Error("canvas not ready"));
+          return exportSceneToJson(a.getSceneElements(), a.getAppState(), a.getFiles());
         },
         setViewMode(view) {
           const a = apiRef.current;
@@ -357,7 +353,6 @@ export function CanvasBridge({
     ) => {
       const link = (element as { link?: string })?.link;
       if (!link) return;
-      // Allow only safe http/https and anchor links
       if (!/^https?:\/\//i.test(link) && !link.startsWith("#")) {
         event.preventDefault();
         toast.error("Tautan eksternal tidak aman diblokir.");
@@ -367,7 +362,6 @@ export function CanvasBridge({
   );
 
   const validateEmbeddable = useCallback((url: string) => {
-    // Allow embeddable safe video / web tools
     return (
       /^https:\/\/(www\.)?(youtube\.com|youtu\.be|figma\.com|codepen\.io|loom\.com)/i.test(url)
     );
