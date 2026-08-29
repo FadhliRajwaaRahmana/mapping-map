@@ -21,7 +21,7 @@ import { newId } from "@/lib/utils";
 import { mergeScenes, type ScenePayload } from "@/lib/scene-client";
 import { api } from "@/lib/api-client";
 import { toast } from "sonner";
-import ExcalidrawLazy, { WelcomeScreen, Footer } from "./excalidraw-lazy";
+import ExcalidrawLazy from "./excalidraw-lazy";
 
 export type SceneSnapshot = {
   elements: readonly OrderedExcalidrawElement[];
@@ -404,22 +404,6 @@ export function CanvasBridge({
           export: false,
         },
       }}
-    >
-      <WelcomeScreen>
-        <WelcomeScreen.Center>
-          <WelcomeScreen.Center.Heading>
-            Petakan ide & catatan teknismu
-          </WelcomeScreen.Center.Heading>
-          <WelcomeScreen.Center.Menu>
-            <WelcomeScreen.Center.MenuItemHelp />
-          </WelcomeScreen.Center.Menu>
-        </WelcomeScreen.Center>
-      </WelcomeScreen>
-      <Footer>
-        <div className="flex items-center gap-2 rounded border border-foreground/20 bg-background/80 px-2 py-0.5 text-[11px] font-medium text-muted-foreground backdrop-blur-sm shadow-sm">
-          <span>Tip: Tekan <b>N</b> untuk node baru atau gunakan <b>Auto Add</b> di atas</span>
-        </div>
-      </Footer>
-    </ExcalidrawLazy>
+    />
   );
 }
