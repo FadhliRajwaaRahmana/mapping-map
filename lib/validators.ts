@@ -41,4 +41,10 @@ export const createNodeFullSchema = z.object({
   title: z.string().trim().min(1).max(300).default("Tanpa judul"),
 });
 
+
+export const visibilitySchema = z.object({
+  visibility: z.enum(["private", "public"]),
+  publicRole: z.enum(["viewer", "editor"]).optional(),
+});
+
 export const MAX_BODY_BYTES = 4 * 1024 * 1024;

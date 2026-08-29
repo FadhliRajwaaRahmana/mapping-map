@@ -8,6 +8,8 @@ export const maps = sqliteTable("maps", {
   title: text("title").notNull(),
   description: text("description").notNull().default(""),
   isArchived: integer("isArchived", { mode: "boolean" }).notNull().default(false),
+  visibility: text("visibility", { enum: ["private", "public"] }).notNull().default("private"),
+  publicRole: text("publicRole", { enum: ["viewer", "editor"] }).notNull().default("viewer"),
   createdAt: integer("createdAt", { mode: "timestamp_ms" }).notNull(),
   updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull(),
 });

@@ -1,8 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { maps, mapState, mapNodes, mapCollaborators } from "@/lib/schema";
-import { requireUser } from "@/lib/guards";
-import { eq, and } from "drizzle-orm";
+import { maps, mapState, mapNodes } from "@/lib/schema";
+import { requireUser, getMapAccess } from "@/lib/guards";
+import { eq } from "drizzle-orm";
 import { parseScene } from "@/lib/scene";
 import { EditorClient } from "@/components/editor/editor-client";
 
@@ -15,7 +15,6 @@ export default async function EditorPage({
 }) {
   const { id } = await params;
   const user = await requireUser();
-  if (!user) redirect("/login");
 
   const mapRows = await db
     .select()
@@ -25,37 +24,42 @@ export default async function EditorPage({
   const map = mapRows[0];
   if (!map) notFound();
 
-  const collab = await db
-    .select({ role: mapCollaborators.role })
-    .from(mapCollaborators)
-    .where(
-      and(
-        eq(mapCollaborators.mapId, id),
-        eq(mapCollaborators.userId, user.id),
-      ),
-    )
-    .limit(1);
-
-  // Revoked/never-invited users must NOT get a read-only editor: show a denial state.
-  const hasAccess = collab.length > 0 || map.ownerId === user.id;
-  if (!hasAccess) {
+  // Visibility-aware access: private requires collaborator/owner, public allows anyone
+  const access = await getMapAccess(id);
+  // For public maps, allow anonymous viewer access (no login required)
+  const isPublicViewer = (map.visibility as string) === "public" && (map.publicRole as string) === "viewer";
+  if (!access.hasAccess) {
+    // Public viewer maps: allow anonymous read
+    if (isPublicViewer && !user) {
+      const stateRowsAnon = await db.select().from(mapState).where(eq(mapState.mapId, id)).limit(1);
+      const sceneAnon = stateRowsAnon[0] ? parseScene(stateRowsAnon[0].scene) : null;
+      const revAnon = stateRowsAnon[0]?.revision ?? 0;
+      const nodesAnon = await db.select().from(mapNodes).where(eq(mapNodes.mapId, id));
+      return (
+        <EditorClient
+          mapId={id}
+          title={map.title}
+          role="viewer"
+          userName="Tamu"
+          selfUserId="anon"
+          initialScene={sceneAnon}
+          initialRevision={revAnon}
+          initialNodes={nodesAnon.map((n) => ({ id: n.id, elementId: n.elementId, title: n.title, contentMd: n.contentMd }))}
+        />
+      );
+    }
+    if (!user) redirect("/login");
     return (
       <div className="flex min-h-screen items-center justify-center p-8">
         <div className="text-center">
-          <h1 className="text-xl font-semibold">
-            Anda tidak punya akses ke peta ini.
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Minta owner untuk mengundang Anda kembali.
-          </p>
+          <h1 className="text-xl font-semibold">Anda tidak punya akses ke peta ini.</h1>
+          <p className="mt-2 text-sm text-muted-foreground">Minta owner untuk mengundang Anda kembali.</p>
         </div>
       </div>
     );
   }
-
-  const role =
-    (collab[0]?.role as "owner" | "editor" | "viewer" | undefined) ??
-    (map.ownerId === user.id ? "owner" : "viewer");
+  // At this point access.hasAccess is true and user is not null (anon case already returned above)
+  const role = access.role as "owner" | "editor" | "viewer";
 
   const stateRows = await db
     .select()
@@ -75,8 +79,8 @@ export default async function EditorPage({
       mapId={id}
       title={map.title}
       role={role}
-      userName={user.name}
-      selfUserId={user.id}
+      userName={user!.name}
+      selfUserId={user!.id}
       initialScene={scene}
       initialRevision={currentRevision}
       initialNodes={nodes.map((n) => ({

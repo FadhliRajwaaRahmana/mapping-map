@@ -34,6 +34,7 @@ export function Hero() {
 
   return (
     <section
+      id="hero"
       ref={sectionRef}
       className="relative overflow-hidden px-4 pb-20 pt-28 sm:pb-28 sm:pt-36 lg:pt-44"
     >
