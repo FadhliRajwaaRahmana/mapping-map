@@ -238,15 +238,18 @@ export function EditorClient({
   }
 
   async function handleAutoAdd(title: string, targetElementId: string | null, shape: NodeShape = "rectangle") {
+    const raw = title.trim();
+    if (!raw) return;
     const handle = handleRef.current;
     if (!handle) { toast.error("Canvas belum siap"); return; }
-    const created = handle.addAutoNode(title, targetElementId, shape);
+    const created = handle.addAutoNode(raw, targetElementId, shape);
+    if (!created) { toast.error("Gagal menambah node di canvas"); return; }
     if (!created) return;
     try {
       const node = await api.post<NodeRow>(`/api/maps/${mapId}/nodes`, {
         id: created.nodeId,
         elementId: created.elementId,
-        title,
+        title: raw,
       });
       setNodes((prev) => [...prev, node]);
       setOpenNodeId(created.nodeId);
