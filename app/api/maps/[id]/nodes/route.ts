@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { mapNodes } from "@/lib/schema";
-import { requireMapRole } from "@/lib/guards";
+import { requireMapAccess, requireMapRole } from "@/lib/guards";
 import { createNodeFullSchema } from "@/lib/validators";
 import { eq } from "drizzle-orm";
 
@@ -11,7 +11,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const res = await requireMapRole(id, "viewer");
+  const res = await requireMapAccess(id, "viewer");
   if (!res.ok) return Response.json(res.body, { status: res.status });
   const rows = await db
     .select()
@@ -33,7 +33,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const res = await requireMapRole(id, "editor");
+  const res = await requireMapAccess(id, "editor");
   if (!res.ok) return Response.json(res.body, { status: res.status });
   let body: unknown;
   try {

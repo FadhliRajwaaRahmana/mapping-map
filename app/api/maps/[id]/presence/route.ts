@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { presence, user } from "@/lib/schema";
-import { requireMapRole } from "@/lib/guards";
+import { requireMapAccess } from "@/lib/guards";
 import { eq, inArray } from "drizzle-orm";
 
 export const runtime = "nodejs";
@@ -34,7 +34,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const res = await requireMapRole(id, "viewer");
+  const res = await requireMapAccess(id, "viewer");
   if (!res.ok) return Response.json(res.body, { status: res.status });
   return Response.json({ data: await activeRows(id) });
 }
@@ -44,7 +44,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const res = await requireMapRole(id, "viewer");
+  const res = await requireMapAccess(id, "viewer");
   if (!res.ok) return Response.json(res.body, { status: res.status });
   const now = new Date();
   await db

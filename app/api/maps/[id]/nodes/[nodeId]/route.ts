@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { mapNodes } from "@/lib/schema";
-import { requireMapRole } from "@/lib/guards";
+import { requireMapAccess } from "@/lib/guards";
 import { updateNodeSchema } from "@/lib/validators";
 import { and, eq } from "drizzle-orm";
 
@@ -18,7 +18,7 @@ function findNode(mapId: string, nodeId: string) {
 
 export async function GET(request: Request, { params }: Ctx) {
   const { id, nodeId } = await params;
-  const res = await requireMapRole(id, "viewer");
+  const res = await requireMapAccess(id, "viewer");
   if (!res.ok) return Response.json(res.body, { status: res.status });
   const rows = await findNode(id, nodeId);
   if (rows.length === 0) {
@@ -41,7 +41,7 @@ export async function GET(request: Request, { params }: Ctx) {
 
 export async function PATCH(request: Request, { params }: Ctx) {
   const { id, nodeId } = await params;
-  const res = await requireMapRole(id, "editor");
+  const res = await requireMapAccess(id, "editor");
   if (!res.ok) return Response.json(res.body, { status: res.status });
   let body: unknown;
   try {
@@ -94,7 +94,7 @@ export async function PATCH(request: Request, { params }: Ctx) {
 
 export async function DELETE(request: Request, { params }: Ctx) {
   const { id, nodeId } = await params;
-  const res = await requireMapRole(id, "editor");
+  const res = await requireMapAccess(id, "editor");
   if (!res.ok) return Response.json(res.body, { status: res.status });
   await db
     .delete(mapNodes)

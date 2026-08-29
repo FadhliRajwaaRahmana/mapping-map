@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { maps } from "@/lib/schema";
-import { requireMapRole } from "@/lib/guards";
+import { requireMapRole, requireMapAccess } from "@/lib/guards";
 import { visibilitySchema } from "@/lib/validators";
 import { eq } from "drizzle-orm";
 
@@ -38,7 +38,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const res = await requireMapRole(id, "viewer");
+  const res = await requireMapAccess(id, "viewer");
   // Also allow public viewers to read visibility state — check map directly if requireMapRole denies
   if (!res.ok) {
     const mapRows = await db.select({ visibility: maps.visibility, publicRole: maps.publicRole }).from(maps).where(eq(maps.id, id)).limit(1);
