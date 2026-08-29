@@ -62,6 +62,13 @@ export const mapFiles = sqliteTable(
   (t) => [uniqueIndex("map_files_map_file_uidx").on(t.mapId, t.fileId)],
 );
 
+export const mapLibrary = sqliteTable("map_library", {
+  mapId: text("mapId").primaryKey().references(() => maps.id, { onDelete: "cascade" }),
+  dataJson: text("dataJson").notNull(),
+  updatedBy: text("updatedBy"),
+  updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull(),
+});
+
 export const presence = sqliteTable(
   "presence",
   {

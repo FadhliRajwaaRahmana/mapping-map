@@ -204,6 +204,20 @@ export function EditorClient({
     }
   }
 
+  async function exportSvg() {
+    const handle = handleRef.current;
+    if (!handle) return;
+    try {
+      const svgStr = await handle.exportSvg();
+      triggerDownload(
+        new Blob([svgStr], { type: "image/svg+xml" }),
+        `${safeName}.svg`,
+      );
+    } catch {
+      toast.error("Gagal ekspor SVG");
+    }
+  }
+
   function exportJson() {
     const handle = handleRef.current;
     if (!handle) return;
@@ -375,6 +389,9 @@ export function EditorClient({
               <DropdownMenuItem onClick={() => void exportPng()}>
                 Gambar (PNG)
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void exportSvg()}>
+                Vektor (SVG)
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={exportJson}>
                 Data (JSON)
               </DropdownMenuItem>
@@ -401,6 +418,7 @@ export function EditorClient({
       {/* ── Canvas + Side Panel ──────────────────────────────── */}
       <div className="relative flex-1">
         <CanvasBridge
+          mapId={mapId}
           initial={initialScene}
           viewMode={!canEdit}
           onSceneChange={onSceneChange}

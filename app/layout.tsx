@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, Inter, Geist_Mono } from "next/font/google";
+import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
 import { LenisProvider } from "@/lib/providers/lenis-provider";
 import { GsapProvider } from "@/lib/providers/gsap-provider";
@@ -53,15 +54,23 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="id"
+      suppressHydrationWarning
       className={`${spaceGrotesk.variable} ${inter.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <LenisProvider>
-          <GsapProvider>
-            <Toaster richColors position="top-center" />
-            {children}
-          </GsapProvider>
-        </LenisProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <LenisProvider>
+            <GsapProvider>
+              <Toaster richColors position="top-center" />
+              {children}
+            </GsapProvider>
+          </LenisProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
