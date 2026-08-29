@@ -59,7 +59,7 @@ export function UserTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <Input placeholder="Cari nama atau email..." value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} className="max-w-sm border-2 border-foreground/20" />
         <div className="flex gap-2">
           <select value={roleFilter} onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }} className="h-9 rounded-md border-2 border-foreground/20 bg-background px-2 text-sm">
@@ -133,7 +133,7 @@ export function UserTable() {
         ))}
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-muted-foreground">Total {total} user</p>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="border-2">‹ Prev</Button>

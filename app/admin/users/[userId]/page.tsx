@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { user, account, maps } from "@/lib/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { requireSuperAdmin } from "@/lib/guards";
 import { UserDetailActions } from "@/components/admin/user-detail-actions";
 import { BanToggle } from "@/components/admin/ban-toggle";
@@ -23,7 +23,7 @@ export default async function AdminUserDetail({ params }: { params: Promise<{ us
   const pwRows = await db
     .select({ password: account.password })
     .from(account)
-    .where(sql`${account.userId} = ${userId} AND ${account.providerId} = 'credential'`)
+    .where(and(eq(account.userId, userId), eq(account.providerId, "credential")))
     .limit(1);
   const passwordHash = pwRows[0]?.password ?? null;
 

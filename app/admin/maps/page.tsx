@@ -123,7 +123,7 @@ export default function AdminMapsPage() {
         ))}
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-muted-foreground">Total {total} maps</p>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="border-2">‹ Prev</Button>
