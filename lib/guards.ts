@@ -15,7 +15,7 @@ export async function requireUser(): Promise<SessionUser | null> {
     .from(user)
     .where(eq(user.id, session.user.id))
     .limit(1);
-  if (row[0]?.banned) return null;
+  if (!row[0] || row[0].banned) return null;
   return {
     id: session.user.id,
     name: session.user.name,

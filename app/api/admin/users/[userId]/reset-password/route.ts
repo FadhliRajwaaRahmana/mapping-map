@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { account } from "@/lib/schema";
+import { account, session } from "@/lib/schema";
 import { requireSuperAdmin } from "@/lib/guards";
 import { resetPasswordSchema } from "@/lib/validators";
 import { eq, sql } from "drizzle-orm";
@@ -46,6 +46,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ use
       updatedAt: new Date(),
     });
   }
+
+  await db.delete(session).where(eq(session.userId, userId));
 
   return Response.json({ data: { ok: true } });
 }

@@ -58,13 +58,16 @@ export async function requestWithHeaders<T>(path: string, init?: RequestInit): P
   if (res.status === 304) return { status: 304, data: null, etag: res.headers.get("etag") };
   const etag = res.headers.get("etag");
   if (!res.ok) {
+    let code = "internal";
     let message = `Gagal (status ${res.status})`;
     try {
-      message = ((await res.json()) as { message?: string }).message ?? message;
+      const j = (await res.json()) as { error?: string; message?: string };
+      code = j.error ?? code;
+      message = j.message ?? message;
     } catch {
       /* non-JSON */
     }
-    throw new ApiError(res.status, "internal", message);
+    throw new ApiError(res.status, code, message);
   }
   const json = (await res.json()) as { data: T };
   return { status: res.status, data: json.data, etag };

@@ -12,7 +12,15 @@ export const renameMapSchema = z.object({
 });
 
 export const saveStateSchema = z.object({
-  scene: z.record(z.string(), z.unknown()),
+  scene: z
+    .object({
+      type: z.literal("excalidraw"),
+      version: z.number(),
+      elements: z.array(z.unknown()),
+      appState: z.record(z.string(), z.unknown()).optional(),
+      files: z.record(z.string(), z.unknown()).optional(),
+    })
+    .passthrough(),
   baseRevision: z.number().int().min(0),
 });
 

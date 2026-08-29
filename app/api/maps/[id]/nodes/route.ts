@@ -65,11 +65,18 @@ export async function POST(
       updatedAt: now,
       updatedBy: res.user.id,
     });
-  } catch {
-    // unique violation on (mapId, elementId)
+  } catch (e: unknown) {
+    const err = e as { code?: string; message?: string };
+    const msg = err?.message ?? String(e ?? "");
+    if (err?.code === "SQLITE_CONSTRAINT" && msg.includes("map_nodes_map_element_uidx")) {
+      return Response.json(
+        { error: "conflict", message: "Node untuk elemen ini sudah ada." },
+        { status: 409 },
+      );
+    }
     return Response.json(
-      { error: "conflict", message: "Node untuk elemen ini sudah ada." },
-      { status: 409 },
+      { error: "internal", message: "Gagal membuat node." },
+      { status: 500 },
     );
   }
   return Response.json(

@@ -95,12 +95,16 @@ export function CanvasBridge({
         applyRemote(remote) {
           const a = apiRef.current;
           if (!a) return;
-          const { elements } = mergeScenes(
+          const { elements, files } = mergeScenes(
             a.getSceneElements(),
             a.getAppState(),
             a.getFiles(),
             remote,
           );
+          // Merge files via addFiles (updateScene has no files param)
+          if (Object.keys(files).length > 0) {
+            a.addFiles(Object.values(files) as never[]);
+          }
           a.updateScene({
             elements,
             appState: remote.appState as unknown as AppState,

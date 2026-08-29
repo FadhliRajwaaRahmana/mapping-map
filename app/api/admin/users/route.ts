@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
-import { user, account } from "@/lib/schema";
+import { user } from "@/lib/schema";
 import { requireSuperAdmin } from "@/lib/guards";
-import { eq, count, inArray, and, or, like } from "drizzle-orm";
+import { eq, count, and, or, like } from "drizzle-orm";
 import { desc } from "drizzle-orm";
 
 export const runtime = "nodejs";
@@ -52,19 +52,5 @@ export async function GET(request: Request) {
     .limit(limit)
     .offset(offset);
 
-  const userIds = rows.map((r) => r.id);
-  const hashes = userIds.length
-    ? await db
-        .select({ userId: account.userId, password: account.password })
-        .from(account)
-        .where(and(inArray(account.userId, userIds), eq(account.providerId, "credential")))
-    : [];
-  const hashByUserId = new Map(hashes.map((h) => [h.userId, h.password]));
-
-  const data = rows.map((r) => ({
-    ...r,
-    passwordHash: hashByUserId.get(r.id) ?? null,
-  }));
-
-  return Response.json({ data, total: totalRow.value, page, limit });
+  return Response.json({ data: rows, total: totalRow.value, page, limit });
 }

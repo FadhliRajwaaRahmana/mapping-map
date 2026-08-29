@@ -12,10 +12,11 @@ import Lenis from "lenis";
 export function LenisProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAdmin = pathname?.startsWith("/admin");
+  const isEditor = pathname?.startsWith("/maps/");
   const lenisRef = useRef<Lenis | null>(null);
 
   useEffect(() => {
-    if (isAdmin) return;
+    if (isAdmin || isEditor) return;
     const lenis = new Lenis({
       lerp: 0.1,
       smoothWheel: true,
@@ -26,13 +27,14 @@ export function LenisProvider({ children }: { children: React.ReactNode }) {
       lenis.raf(time);
       requestAnimationFrame(raf);
     }
-    requestAnimationFrame(raf);
+    const rafId = requestAnimationFrame(raf);
 
     return () => {
+      cancelAnimationFrame(rafId);
       lenis.destroy();
       lenisRef.current = null;
     };
-  }, [isAdmin]);
+  }, [isAdmin, isEditor]);
 
   return <>{children}</>;
 }

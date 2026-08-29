@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { maps, mapState } from "@/lib/schema";
 import { requireMapRole } from "@/lib/guards";
-import { saveStateSchema } from "@/lib/validators";
+import { MAX_BODY_BYTES, saveStateSchema } from "@/lib/validators";
 import {
   parseScene,
   sceneSizeBytes,
@@ -12,8 +12,6 @@ import {
 import { eq } from "drizzle-orm";
 
 export const runtime = "nodejs";
-
-const MAX_BODY = 4 * 1024 * 1024;
 
 export async function GET(
   request: Request,
@@ -38,7 +36,7 @@ export async function GET(
 
   const ifNoneMatch = request.headers.get("if-none-match");
   if (ifNoneMatch && ifNoneMatch === `"${row.revision}"`) {
-    return new Response(null, { status: 304 });
+    return new Response(null, { status: 304, headers: { ETag: '"' + row.revision + '"' } });
   }
 
   return Response.json(
@@ -56,7 +54,7 @@ export async function POST(
   if (!res.ok) return Response.json(res.body, { status: res.status });
 
   const raw = await request.text();
-  if (raw.length > MAX_BODY) {
+  if (Buffer.byteLength(raw, "utf8") > MAX_BODY_BYTES) {
     return Response.json(
       {
         error: "too_large",
@@ -120,7 +118,7 @@ export async function POST(
     };
   }
 
-  if (sceneSizeBytes(finalScene) > MAX_BODY) {
+  if (sceneSizeBytes(finalScene) > MAX_BODY_BYTES) {
     return Response.json(
       {
         error: "too_large",

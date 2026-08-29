@@ -2,10 +2,7 @@
 
 import { useRef } from "react";
 import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
-
-gsap.registerPlugin(ScrollTrigger);
 
 const DATA = [
   { name: "Rina S.", role: "Product Manager", quote: "Akhirnya ada mind map yang tidak bikin pusing. Kolaborasi real-time-nya mulus, tim langsung sinkron.", initial: "RS" },

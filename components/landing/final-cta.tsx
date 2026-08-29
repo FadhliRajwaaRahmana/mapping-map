@@ -3,10 +3,7 @@
 import Link from "next/link";
 import { useRef } from "react";
 import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
-
-gsap.registerPlugin(ScrollTrigger);
 
 export function FinalCta() {
   const ref = useRef<HTMLElement>(null);

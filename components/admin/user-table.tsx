@@ -16,7 +16,6 @@ type UserRow = {
   banned: boolean;
   banReason: string | null;
   createdAt: string;
-  passwordHash: string | null;
 };
 
 export function UserTable() {
