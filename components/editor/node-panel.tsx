@@ -30,7 +30,6 @@ export function NodePanel({
   const [mode, setMode] = useState<"write" | "preview">("write");
   const [dirty, setDirty] = useState(false);
 
-  // Reset local state whenever a different node is opened
   useEffect(() => {
     setTitle(initial.title);
     setContent(initial.contentMd);
@@ -77,8 +76,14 @@ export function NodePanel({
 
   return (
     <div className="flex h-full flex-col gap-3">
+      {/* Header bar */}
       <div className="flex items-center gap-2">
-        <Button size="sm" variant="ghost" className="size-7 p-0" onClick={onClose}>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="size-7 p-0 hover:bg-muted"
+          onClick={onClose}
+        >
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="14"
@@ -94,21 +99,25 @@ export function NodePanel({
             <path d="m6 6 12 12" />
           </svg>
         </Button>
-        <div className="ml-auto flex overflow-hidden rounded-md border text-xs">
+
+        {/* Mode toggle — brutalist pill */}
+        <div className="ml-auto flex overflow-hidden rounded-md border-2 border-foreground text-xs font-bold">
           <button
-            className={`px-2.5 py-1 transition-colors ${mode === "write" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+            className={`px-3 py-1.5 transition-colors ${mode === "write" ? "bg-primary text-primary-foreground" : "bg-card hover:bg-muted"}`}
             onClick={() => setMode("write")}
           >
             Tulis
           </button>
           <button
-            className={`px-2.5 py-1 transition-colors ${mode === "preview" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+            className={`px-3 py-1.5 transition-colors ${mode === "preview" ? "bg-primary text-primary-foreground" : "bg-card hover:bg-muted"}`}
             onClick={() => setMode("preview")}
           >
             Pratinjau
           </button>
         </div>
       </div>
+
+      {/* Title input */}
       <Input
         value={title}
         readOnly={!canEdit}
@@ -116,11 +125,14 @@ export function NodePanel({
           setTitle(e.target.value);
           setDirty(true);
         }}
-        className="font-semibold"
+        className="border-2 border-foreground/20 font-heading text-base font-bold transition-colors focus:border-primary"
         aria-label="Judul node"
       />
-      <Separator />
-      <div className="min-h-0 flex-1 overflow-hidden rounded-md border">
+
+      <Separator className="bg-foreground/10" />
+
+      {/* Editor / preview */}
+      <div className="min-h-0 flex-1 overflow-hidden rounded-md border-2 border-foreground/20">
         {mode === "write" ? (
           <MarkdownEditor
             value={content}
@@ -136,11 +148,13 @@ export function NodePanel({
           </div>
         )}
       </div>
+
+      {/* Delete node */}
       {canEdit && (
         <Button
           size="sm"
           variant="destructive"
-          className="self-end"
+          className="self-end border-2 border-destructive/50 font-bold shadow-brutal-sm transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-brutal"
           onClick={() => void removeNode()}
         >
           Hapus node

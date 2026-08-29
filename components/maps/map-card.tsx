@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Card, CardContent } from "@/components/ui/card";
+import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -23,8 +23,15 @@ type MapItem = {
   role: "owner" | "editor" | "viewer";
 };
 
-export function MapCard({ map }: { map: MapItem }) {
+const roleLabels: Record<string, { label: string; color: string }> = {
+  owner: { label: "Milik saya", color: "bg-primary text-primary-foreground" },
+  editor: { label: "Editor", color: "bg-secondary text-secondary-foreground" },
+  viewer: { label: "Viewer", color: "bg-muted text-muted-foreground" },
+};
+
+export function MapCard({ map, index = 0 }: { map: MapItem; index?: number }) {
   const router = useRouter();
+  const role = roleLabels[map.role] ?? roleLabels.viewer;
 
   async function patch(p: Record<string, unknown>) {
     try {
@@ -47,22 +54,32 @@ export function MapCard({ map }: { map: MapItem }) {
   }
 
   return (
-    <Card className="group relative transition-shadow hover:shadow-md">
-      {/* Link covers the card; the "···" menu sits in a relative container above it
-          (a <button> inside <a> would be invalid HTML). stopPropagation on the
-          menu click so opening it doesn't navigate. */}
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay: index * 0.08, ease: "easeOut" }}
+      whileHover={{ y: -4, x: -2 }}
+      className="group relative rounded-lg border-2 border-foreground bg-card shadow-brutal-sm transition-shadow hover:shadow-brutal"
+    >
+      {/* Link covers the card */}
       <Link
         href={`/maps/${map.id}`}
         className="absolute inset-0 z-0 rounded-md"
         aria-label={`Buka peta ${map.title}`}
       />
-      <CardContent className="relative z-10 pt-5">
+
+      <div className="relative z-10 p-5">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="font-semibold leading-tight line-clamp-1">{map.title}</h3>
+          <h3 className="font-heading text-lg font-semibold leading-tight line-clamp-1">
+            {map.title}
+          </h3>
           {map.role === "owner" && (
-            <div className="relative z-20" onClick={(e) => e.stopPropagation()}>
+            <div
+              className="relative z-20"
+              onClick={(e) => e.stopPropagation()}
+            >
               <DropdownMenu>
-                <DropdownMenuTrigger className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100 focus-visible:opacity-100">
+                <DropdownMenuTrigger className="rounded-md p-1.5 text-muted-foreground opacity-0 transition-all hover:bg-muted group-hover:opacity-100 focus-visible:opacity-100">
                   <span className="sr-only">Opsi</span>
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -76,8 +93,12 @@ export function MapCard({ map }: { map: MapItem }) {
                     <circle cx="12" cy="19" r="1.5" />
                   </svg>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => void patch({ isArchived: !map.isArchived })}>
+                <DropdownMenuContent align="end" className="border-2 border-foreground shadow-brutal-sm">
+                  <DropdownMenuItem
+                    onClick={() =>
+                      void patch({ isArchived: !map.isArchived })
+                    }
+                  >
                     {map.isArchived ? "Keluarkan dari arsip" : "Arsipkan"}
                   </DropdownMenuItem>
                   <DropdownMenuItem
@@ -91,21 +112,30 @@ export function MapCard({ map }: { map: MapItem }) {
             </div>
           )}
         </div>
-        <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+
+        <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
           {map.description || "Belum ada deskripsi"}
         </p>
-        <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-          <Badge variant={map.role === "owner" ? "default" : "secondary"} className="text-[11px]">
-            {map.role === "owner" ? "Milik saya" : map.role === "editor" ? "Editor" : "Viewer"}
+
+        <div className="mt-4 flex items-center gap-2">
+          <Badge
+            className={`border-0 text-xs font-semibold ${role.color}`}
+          >
+            {role.label}
           </Badge>
           {map.isArchived && (
-            <Badge variant="outline" className="text-[11px]">
+            <Badge
+              variant="outline"
+              className="border-2 border-foreground/20 text-xs"
+            >
               Arsip
             </Badge>
           )}
-          <span>{new Date(map.updatedAt).toLocaleDateString("id-ID")}</span>
+          <span className="ml-auto text-xs text-muted-foreground">
+            {new Date(map.updatedAt).toLocaleDateString("id-ID")}
+          </span>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </motion.div>
   );
 }

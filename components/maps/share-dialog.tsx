@@ -76,7 +76,11 @@ export function ShareDialog({ mapId }: { mapId: string }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline">
+        <Button
+          size="sm"
+          variant="outline"
+          className="border-2 border-foreground/20 text-xs font-semibold transition-all hover:border-foreground hover:shadow-brutal-sm sm:text-sm"
+        >
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="14"
@@ -93,15 +97,18 @@ export function ShareDialog({ mapId }: { mapId: string }) {
             <polyline points="16 6 12 2 8 6" />
             <line x1="12" x2="12" y1="2" y2="15" />
           </svg>
-          Bagikan
+          <span className="hidden sm:inline">Bagikan</span>
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="border-2 border-foreground shadow-brutal-lg">
         <DialogHeader>
-          <DialogTitle>Bagikan peta</DialogTitle>
+          <DialogTitle className="font-heading text-xl font-bold">
+            Bagikan peta
+          </DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-2">
+        <div className="space-y-5">
+          {/* Invite form */}
+          <div className="space-y-3">
             <div className="flex gap-2">
               <Input
                 value={email}
@@ -111,9 +118,10 @@ export function ShareDialog({ mapId }: { mapId: string }) {
                 onKeyDown={(e) => {
                   if (e.key === "Enter") void invite();
                 }}
+                className="border-2 border-foreground/20 bg-background transition-colors focus:border-primary"
               />
               <select
-                className="h-9 rounded-md border bg-background px-2 text-sm"
+                className="h-9 rounded-md border-2 border-foreground/20 bg-background px-2 text-sm font-medium transition-colors focus:border-primary"
                 value={role}
                 onChange={(e) =>
                   setRole(e.target.value as "editor" | "viewer")
@@ -126,44 +134,51 @@ export function ShareDialog({ mapId }: { mapId: string }) {
             </div>
             <Button
               size="sm"
-              className="w-full"
+              className="w-full border-2 border-foreground font-bold shadow-brutal-sm transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-brutal"
               onClick={() => void invite()}
               disabled={busy || !email.trim()}
             >
               {busy ? "..." : "Undang"}
             </Button>
           </div>
-          <div className="space-y-2">
-            <Label>Kolaborator</Label>
+
+          {/* Collaborator list */}
+          <div className="space-y-3">
+            <Label className="text-sm font-bold">Kolaborator</Label>
             {collabs.length === 0 && (
               <p className="text-sm text-muted-foreground">
                 Belum ada kolaborator.
               </p>
             )}
-            {collabs.map((c) => (
-              <div
-                key={c.userId}
-                className="flex items-center justify-between text-sm"
-              >
-                <div>
-                  <span className="font-medium">{c.name}</span>{" "}
-                  <span className="text-muted-foreground">({c.email})</span>
-                  <Badge variant="secondary" className="ml-2">
-                    {c.role}
-                  </Badge>
+            <div className="max-h-48 space-y-2 overflow-y-auto">
+              {collabs.map((c) => (
+                <div
+                  key={c.userId}
+                  className="flex items-center justify-between rounded-md border-2 border-foreground/10 bg-muted/30 px-3 py-2 text-sm"
+                >
+                  <div className="min-w-0 flex-1">
+                    <span className="font-semibold">{c.name}</span>{" "}
+                    <span className="text-muted-foreground">({c.email})</span>
+                    <Badge
+                      className="ml-2 border-0 text-[10px] font-bold"
+                      variant={c.role === "owner" ? "default" : "secondary"}
+                    >
+                      {c.role}
+                    </Badge>
+                  </div>
+                  {c.role !== "owner" && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-xs text-destructive hover:text-destructive"
+                      onClick={() => void remove(c.userId)}
+                    >
+                      Hapus
+                    </Button>
+                  )}
                 </div>
-                {c.role !== "owner" && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="text-destructive"
-                    onClick={() => void remove(c.userId)}
-                  >
-                    Hapus
-                  </Button>
-                )}
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </DialogContent>

@@ -50,7 +50,7 @@ export function NewMapDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
+        <Button className="border-2 border-foreground font-bold shadow-brutal-sm transition-all hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-brutal">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="16"
@@ -69,13 +69,17 @@ export function NewMapDialog() {
           Peta baru
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="border-2 border-foreground shadow-brutal-lg sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Buat peta baru</DialogTitle>
+          <DialogTitle className="font-heading text-xl font-bold">
+            Buat peta baru
+          </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 pt-2">
           <div className="space-y-2">
-            <Label htmlFor="map-title">Judul</Label>
+            <Label htmlFor="map-title" className="text-sm font-semibold">
+              Judul
+            </Label>
             <Input
               id="map-title"
               value={title}
@@ -83,10 +87,11 @@ export function NewMapDialog() {
               onKeyDown={handleKeyDown}
               placeholder="mis. Arsitektur API"
               autoFocus
+              className="border-2 border-foreground/20 bg-background transition-colors focus:border-primary"
             />
           </div>
           <Button
-            className="w-full"
+            className="w-full border-2 border-foreground py-5 font-bold shadow-brutal-sm transition-all hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-brutal"
             onClick={() => void onCreate()}
             disabled={busy || !title.trim()}
           >

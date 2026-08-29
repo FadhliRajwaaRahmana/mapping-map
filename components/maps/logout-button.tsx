@@ -20,7 +20,12 @@ export function LogoutButton() {
   }
 
   return (
-    <Button variant="ghost" size="sm" onClick={() => void handleLogout()}>
+    <Button
+      variant="outline"
+      size="sm"
+      className="border-2 border-foreground/20 font-semibold transition-all hover:border-foreground hover:shadow-brutal-sm"
+      onClick={() => void handleLogout()}
+    >
       Keluar
     </Button>
   );

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -61,7 +62,7 @@ export function EditorClient({
   const [revision, setRevision] = useState(initialRevision);
   const revisionRef = useRef(revision);
   revisionRef.current = revision;
-  const skipSaveRef = useRef(true); // swallow the initial hydration onChange burst
+  const skipSaveRef = useRef(true);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [syncStatus, setSyncStatus] = useState<"saved" | "saving" | "error">("saved");
 
@@ -90,7 +91,6 @@ export function EditorClient({
       } catch (e) {
         setSyncStatus("error");
         toast.error(e instanceof ApiError ? e.message : "Gagal menyimpan — akan menyinkronkan ulang");
-        // recover: pull the server's authoritative scene into the canvas
         try {
           const latest = await requestWithHeaders<{ revision: number; scene: ScenePayload | null }>(
             `/api/maps/${mapId}/state`,
@@ -125,7 +125,7 @@ export function EditorClient({
     if (saveTimer.current) clearTimeout(saveTimer.current);
   }, []);
 
-  // ── 2.5s poll — ALL roles see others' changes ──────────────────────
+  // ── 2.5s poll ──────────────────────────────────────────────────────────
   useEffect(() => {
     const timer = setInterval(async () => {
       try {
@@ -136,18 +136,18 @@ export function EditorClient({
         if (r.status === 304) return;
         const rev = r.data?.revision ?? 0;
         if (rev > revisionRef.current && r.data?.scene) {
-          skipSaveRef.current = true; // applying remote must not trigger a save
+          skipSaveRef.current = true;
           handleRef.current?.applyRemote(r.data.scene);
           setRevision(rev);
         }
       } catch {
-        /* transient network error — retry next tick */
+        /* transient network error */
       }
     }, 2500);
     return () => clearInterval(timer);
   }, [mapId]);
 
-  // ── Presence heartbeat (10s) ─────────────────────────────────────────
+  // ── Presence heartbeat (10s) ───────────────────────────────────────────
   const [people, setPeople] = useState<Array<{ userId: string; name: string }>>([]);
   useEffect(() => {
     const tick = async () => {
@@ -166,7 +166,7 @@ export function EditorClient({
     return () => clearInterval(timer);
   }, [mapId]);
 
-  // ── Export helpers ───────────────────────────────────────────────────
+  // ── Export helpers ─────────────────────────────────────────────────────
   const safeName = title.replace(/[^\p{L}\p{N} _-]/gu, "").trim() || "peta";
 
   function triggerDownload(blob: Blob, filename: string) {
@@ -219,7 +219,7 @@ export function EditorClient({
       setNodes((prev) => [...prev, node]);
       setOpenNodeId(created.nodeId);
     } catch (e) {
-      handle.removeElement(created.elementId); // roll back the canvas element
+      handle.removeElement(created.elementId);
       toast.error(e instanceof ApiError ? e.message : "Gagal menyimpan node");
     }
   }
@@ -228,19 +228,28 @@ export function EditorClient({
     ? nodes.find((n) => n.id === openNodeId)
     : undefined;
 
-  // N keybinding — disabled when the panel is open (user might be typing)
   const addNodeCb = useCallback(() => {
     void addNode();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // handleRef (stable ref) + mapId (stable per page) are safe to capture
+  }, []);
   useCreateNodeKeybinding(addNodeCb, canEdit && !openNodeId);
+
+  // Sync status indicator
+  const statusConfig = {
+    saved: { label: "Tersimpan", color: "bg-green-500" },
+    saving: { label: "Menyimpan…", color: "bg-yellow-500 animate-pulse" },
+    error: { label: "Gagal", color: "bg-destructive" },
+  };
+  const status = statusConfig[syncStatus];
 
   return (
     <div className="flex h-screen flex-col">
-      <header className="flex items-center gap-3 border-b bg-background px-4 py-2">
+      {/* ── Brutalist Editor Header ─────────────────────────── */}
+      <header className="flex items-center gap-2 border-b-2 border-foreground bg-card px-3 py-2 sm:gap-3 sm:px-4">
+        {/* Back link */}
         <Link
           href="/maps"
-          className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="flex items-center gap-1 rounded-md p-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -252,19 +261,26 @@ export function EditorClient({
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className="inline mr-1"
           >
             <path d="m15 18-6-6 6-6" />
           </svg>
-          Peta
+          <span className="hidden sm:inline">Peta</span>
         </Link>
-        <div className="h-4 w-px bg-border" />
-        <h1 className="truncate text-sm font-semibold">{title}</h1>
-        <div className="ml-auto flex items-center gap-2">
+
+        <div className="h-4 w-px bg-foreground/20" />
+
+        {/* Title */}
+        <h1 className="truncate font-heading text-sm font-bold sm:text-base">
+          {title}
+        </h1>
+
+        {/* Right side actions */}
+        <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+          {/* Add node button */}
           {canEdit && (
             <Button
               size="sm"
-              variant="outline"
+              className="border-2 border-foreground text-xs font-bold shadow-brutal-sm transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-brutal sm:text-sm"
               onClick={() => void addNode()}
               title="Shortcut: N"
             >
@@ -283,14 +299,24 @@ export function EditorClient({
                 <path d="M12 5v14" />
                 <path d="M5 12h14" />
               </svg>
-              Node
+              <span className="hidden sm:inline">Node</span>
             </Button>
           )}
+
+          {/* Presence */}
           <PresenceAvatars people={people} selfId={selfUserId} />
+
+          {/* Share dialog — owner only */}
           {role === "owner" && <ShareDialog mapId={mapId} />}
+
+          {/* Export dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button size="sm" variant="outline">
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-2 border-foreground/20 text-xs font-semibold transition-all hover:border-foreground hover:shadow-brutal-sm sm:text-sm"
+              >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   width="14"
@@ -307,10 +333,10 @@ export function EditorClient({
                   <polyline points="7 10 12 15 17 10" />
                   <line x1="12" x2="12" y1="15" y2="3" />
                 </svg>
-                Ekspor
+                <span className="hidden sm:inline">Ekspor</span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className="border-2 border-foreground shadow-brutal-sm">
               <DropdownMenuItem onClick={() => void exportPng()}>
                 Gambar (PNG)
               </DropdownMenuItem>
@@ -319,17 +345,25 @@ export function EditorClient({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <span className="text-xs text-muted-foreground">
-            {syncStatus === "saving"
-              ? "Menyimpan…"
-              : syncStatus === "error"
-                ? "Gagal menyimpan"
-                : "Tersimpan"}
+
+          {/* Sync status */}
+          <div className="flex items-center gap-1.5">
+            <span className={`h-2 w-2 rounded-full ${status.color}`} />
+            <span className="hidden text-xs text-muted-foreground sm:inline">
+              {status.label}
+            </span>
+          </div>
+
+          <div className="hidden h-4 w-px bg-foreground/20 sm:block" />
+
+          {/* User name */}
+          <span className="hidden text-xs font-medium text-muted-foreground sm:inline">
+            {userName}
           </span>
-          <div className="h-4 w-px bg-border" />
-          <span className="text-xs text-muted-foreground">{userName}</span>
         </div>
       </header>
+
+      {/* ── Canvas + Side Panel ──────────────────────────────── */}
       <div className="relative flex-1">
         <CanvasBridge
           initial={initialScene}
@@ -339,51 +373,61 @@ export function EditorClient({
           onEmptyClick={() => setOpenNodeId(null)}
           handleRef={handleRef}
         />
-        {openNodeId && (
-          <aside className="absolute bottom-3 right-3 top-3 flex w-80 flex-col rounded-lg border bg-background/95 p-4 shadow-xl backdrop-blur-sm sm:w-96">
-            {openNode ? (
-              <NodePanel
-                key={openNodeId}
-                mapId={mapId}
-                nodeId={openNodeId}
-                canEdit={canEdit}
-                initial={{
-                  title: openNode.title,
-                  contentMd: openNode.contentMd,
-                }}
-                onClose={() => setOpenNodeId(null)}
-              />
-            ) : (
-              <div className="flex h-full flex-col">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="size-7 self-end p-0"
-                  onClick={() => setOpenNodeId(null)}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+
+        {/* Node detail panel — slides in with Framer Motion */}
+        <AnimatePresence>
+          {openNodeId && (
+            <motion.aside
+              initial={{ x: "100%", opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: "100%", opacity: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="absolute bottom-3 right-3 top-3 flex w-[90vw] max-w-96 flex-col rounded-lg border-2 border-foreground bg-card p-4 shadow-brutal-lg sm:w-96"
+            >
+              {openNode ? (
+                <NodePanel
+                  key={openNodeId}
+                  mapId={mapId}
+                  nodeId={openNodeId}
+                  canEdit={canEdit}
+                  initial={{
+                    title: openNode.title,
+                    contentMd: openNode.contentMd,
+                  }}
+                  onClose={() => setOpenNodeId(null)}
+                />
+              ) : (
+                <div className="flex h-full flex-col">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="size-7 self-end p-0"
+                    onClick={() => setOpenNodeId(null)}
                   >
-                    <path d="M18 6 6 18" />
-                    <path d="m6 6 12 12" />
-                  </svg>
-                </Button>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Catatan untuk node ini belum ada di server (tampil setelah
-                  refresh).
-                </p>
-              </div>
-            )}
-          </aside>
-        )}
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M18 6 6 18" />
+                      <path d="m6 6 12 12" />
+                    </svg>
+                  </Button>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Catatan untuk node ini belum ada di server (tampil setelah
+                    refresh).
+                  </p>
+                </div>
+              )}
+            </motion.aside>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
