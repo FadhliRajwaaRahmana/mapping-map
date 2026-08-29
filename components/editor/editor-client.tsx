@@ -16,6 +16,7 @@ import { api, ApiError, requestWithHeaders } from "@/lib/api-client";
 import { useCreateNodeKeybinding } from "@/lib/hooks/use-create-node-keybinding";
 import { NodePanel } from "./node-panel";
 import { ShareDialog } from "@/components/maps/share-dialog";
+import { PresenceAvatars } from "./presence-avatars";
 
 export type NodeRow = {
   id: string;
@@ -40,7 +41,7 @@ export function EditorClient({
   title,
   role,
   userName,
-  selfUserId: _selfUserId,
+  selfUserId,
   initialScene,
   initialRevision,
   initialNodes,
@@ -140,6 +141,25 @@ export function EditorClient({
     return () => clearInterval(timer);
   }, [mapId]);
 
+  // ── Presence heartbeat (10s) ─────────────────────────────────────────
+  const [people, setPeople] = useState<Array<{ userId: string; name: string }>>([]);
+  useEffect(() => {
+    const tick = async () => {
+      try {
+        const data = await api.post<Array<{ userId: string; name: string }>>(
+          `/api/maps/${mapId}/presence`,
+          {},
+        );
+        setPeople(data);
+      } catch {
+        /* ignore */
+      }
+    };
+    void tick();
+    const timer = setInterval(() => void tick(), 10_000);
+    return () => clearInterval(timer);
+  }, [mapId]);
+
   async function addNode() {
     const handle = handleRef.current;
     if (!handle) {
@@ -224,6 +244,7 @@ export function EditorClient({
               Node
             </Button>
           )}
+          <PresenceAvatars people={people} selfId={selfUserId} />
           {role === "owner" && <ShareDialog mapId={mapId} />}
           <span className="text-xs text-muted-foreground">
             {syncStatus === "saving"
