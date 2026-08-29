@@ -50,7 +50,7 @@ export async function GET(
   })();
   return Response.json({
     data: {
-      map: { id: map.id, title: map.title, description: map.description, isArchived: map.isArchived, role: res.role },
+      map: { id: map.id, title: map.title, description: map.description, isArchived: map.isArchived, visibility: map.visibility, publicRole: map.publicRole, role: res.role },
       state,
       nodes: nodes.map((n) => ({ id: n.id, elementId: n.elementId, title: n.title, contentMd: n.contentMd, updatedAt: n.updatedAt })),
       files: files.map((f) => ({ id: f.id, fileId: f.fileId, filename: f.filename, mime: f.mime, size: 0, createdAt: f.createdAt })),

@@ -25,6 +25,28 @@ export const metadata: Metadata = {
   title: "Mapping — Mind map interaktif",
   description:
     "Petakan ide & catatan teknismu di kanvas mind map interaktif. Klik node untuk detail Markdown, kolaborasi dengan tim.",
+  metadataBase: new URL("https://mapping-map.vercel.app"),
+  icons: {
+    icon: "/icon",
+    apple: "/apple-icon",
+  },
+  openGraph: {
+    title: "Mapping — Mind map interaktif",
+    description:
+      "Petakan ide & catatan teknismu di kanvas mind map interaktif. Klik node untuk detail Markdown, kolaborasi dengan tim.",
+    url: "https://mapping-map.vercel.app",
+    siteName: "Mapping",
+    images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "Mapping — Mind map interaktif" }],
+    type: "website",
+    locale: "id_ID",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Mapping — Mind map interaktif",
+    description:
+      "Petakan ide & catatan teknismu di kanvas mind map interaktif. Klik node untuk detail Markdown, kolaborasi dengan tim.",
+    images: ["/opengraph-image"],
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
