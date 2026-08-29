@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/guards";
 import { db } from "@/lib/db";
-import { maps, mapCollaborators } from "@/lib/schema";
+import { maps, mapCollaborators, user as userTable } from "@/lib/schema";
 import { or, eq, and, desc } from "drizzle-orm";
 import { MapCard } from "@/components/maps/map-card";
 import { NewMapDialog } from "@/components/maps/new-map-dialog";
@@ -13,6 +13,9 @@ export const metadata = { title: "Peta Saya — Mapping" };
 export default async function MapsPage() {
   const user = await requireUser();
   if (!user) redirect("/login");
+
+  const superadminRow = await db.select({ role: userTable.role }).from(userTable).where(eq(userTable.id, user.id)).limit(1);
+  const isSuperadmin = superadminRow[0]?.role === "superadmin";
 
   const rows = await db
     .select({
@@ -59,6 +62,14 @@ export default async function MapsPage() {
             </span>
           </Link>
           <div className="flex items-center gap-3">
+            {isSuperadmin && (
+              <Link
+                href="/admin"
+                className="rounded-md border-2 border-foreground bg-destructive px-3 py-1.5 text-xs font-bold text-destructive-foreground shadow-brutal-sm transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-brutal"
+              >
+                Superadmin
+              </Link>
+            )}
             <span className="hidden text-sm font-medium text-muted-foreground sm:inline">
               {user.name}
             </span>
