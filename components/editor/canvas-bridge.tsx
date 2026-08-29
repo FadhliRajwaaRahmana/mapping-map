@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useTheme } from "next-themes";
 import {
   CaptureUpdateAction,
   convertToExcalidrawElements,
   exportToBlob,
+  exportToSvg,
   serializeAsJSON,
   MIME_TYPES,
 } from "@excalidraw/excalidraw";
@@ -17,7 +19,9 @@ import type {
 import type { OrderedExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import { newId } from "@/lib/utils";
 import { mergeScenes, type ScenePayload } from "@/lib/scene-client";
-import ExcalidrawLazy from "./excalidraw-lazy";
+import { api } from "@/lib/api-client";
+import { toast } from "sonner";
+import ExcalidrawLazy, { WelcomeScreen, Footer } from "./excalidraw-lazy";
 
 export type SceneSnapshot = {
   elements: readonly OrderedExcalidrawElement[];
@@ -44,6 +48,8 @@ export type CanvasHandle = {
   getSnapshot(): SceneSnapshot | null;
   /** PNG of the whole scene as a Blob. */
   exportPng(): Promise<Blob>;
+  /** SVG of the whole scene as a string. */
+  exportSvg(): Promise<string>;
   /** JSON of the whole scene as a string. */
   exportJson(): string | null;
   /** Toggle read-only imperatively (prop toggle would remount and lose state). */
@@ -51,6 +57,7 @@ export type CanvasHandle = {
 };
 
 type Props = {
+  mapId: string;
   initial: ScenePayload | null;
   viewMode: boolean;
   onSceneChange: (snap: SceneSnapshot) => void;
@@ -60,6 +67,7 @@ type Props = {
 };
 
 export function CanvasBridge({
+  mapId,
   initial,
   viewMode,
   onSceneChange,
@@ -68,10 +76,54 @@ export function CanvasBridge({
   handleRef,
 }: Props) {
   const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
+  const { resolvedTheme } = useTheme();
+  const [libraryLoaded, setLibraryLoaded] = useState(false);
+  const saveLibraryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Sync initial library from backend ─────────────────────────────────
+  useEffect(() => {
+    let active = true;
+    async function loadLib() {
+      try {
+        const res = await api.get<{ libraryItems: unknown[] | null }>(
+          `/api/maps/${mapId}/library`,
+        );
+        if (active && res.libraryItems && apiRef.current) {
+          apiRef.current.updateLibrary({ libraryItems: res.libraryItems as never[] });
+        }
+      } catch {
+        /* ignore fallback to empty library */
+      } finally {
+        if (active) setLibraryLoaded(true);
+      }
+    }
+    void loadLib();
+    return () => {
+      active = false;
+      if (saveLibraryTimer.current) clearTimeout(saveLibraryTimer.current);
+    };
+  }, [mapId]);
+
+  const onLibraryChange = useCallback(
+    (items: readonly unknown[]) => {
+      if (!libraryLoaded || viewMode) return;
+      if (saveLibraryTimer.current) clearTimeout(saveLibraryTimer.current);
+      saveLibraryTimer.current = setTimeout(async () => {
+        try {
+          await api.put(`/api/maps/${mapId}/library`, {
+            libraryItems: items,
+          });
+        } catch {
+          /* silently retry on next change */
+        }
+      }, 1000);
+    },
+    [libraryLoaded, mapId, viewMode],
+  );
 
   const onExcalidrawAPI = useCallback(
-    (api: ExcalidrawImperativeAPI) => {
-      apiRef.current = api;
+    (apiInstance: ExcalidrawImperativeAPI) => {
+      apiRef.current = apiInstance;
       (handleRef as React.MutableRefObject<CanvasHandle | null>).current = {
         addNodeAtCenter(title) {
           const a = apiRef.current;
@@ -146,9 +198,6 @@ export function CanvasBridge({
           }
           const nodeW = nodeType === "diamond" ? 200 : 220;
 
-          // Pass ALL current elements + new elements to convertToExcalidrawElements
-          // so that elementStore can resolve start.id (targetElementId) and properly
-          // compute startBinding, endBinding, and mutate target's boundElements
           const newSkeleton: unknown[] = [
             {
               id: newNodeElementId,
@@ -183,13 +232,11 @@ export function CanvasBridge({
             }
           }
 
-          // Convert entire scene so convertToExcalidrawElements can find existing target
           const convertedAll = convertToExcalidrawElements(
             [...currentElements, ...newSkeleton] as never[],
             { regenerateIds: false },
           );
 
-          // Identify container shape element
           const container = convertedAll.find((e) => e.id === newNodeElementId);
           const elementId = container?.id ?? newNodeElementId;
 
@@ -247,6 +294,16 @@ export function CanvasBridge({
             mimeType: MIME_TYPES.png,
           });
         },
+        async exportSvg() {
+          const a = apiRef.current;
+          if (!a) throw new Error("canvas not ready");
+          const svgEl = await exportToSvg({
+            elements: a.getSceneElements() as never[],
+            appState: a.getAppState(),
+            files: a.getFiles(),
+          });
+          return svgEl.outerHTML;
+        },
         exportJson() {
           const a = apiRef.current;
           if (!a) return null;
@@ -293,6 +350,29 @@ export function CanvasBridge({
     [onNodeClick, onEmptyClick],
   );
 
+  const onLinkOpen = useCallback(
+    (
+      element: unknown,
+      event: { preventDefault: () => void },
+    ) => {
+      const link = (element as { link?: string })?.link;
+      if (!link) return;
+      // Allow only safe http/https and anchor links
+      if (!/^https?:\/\//i.test(link) && !link.startsWith("#")) {
+        event.preventDefault();
+        toast.error("Tautan eksternal tidak aman diblokir.");
+      }
+    },
+    [],
+  );
+
+  const validateEmbeddable = useCallback((url: string) => {
+    // Allow embeddable safe video / web tools
+    return (
+      /^https:\/\/(www\.)?(youtube\.com|youtu\.be|figma\.com|codepen\.io|loom\.com)/i.test(url)
+    );
+  }, []);
+
   const initialData = useCallback(
     () => (initial ? { ...initial, scrollToContent: true } : null),
     [initial],
@@ -302,6 +382,8 @@ export function CanvasBridge({
     apiRef.current?.updateScene({ appState: { viewModeEnabled: viewMode } });
   }, [viewMode]);
 
+  const canvasTheme = resolvedTheme === "dark" ? "dark" : "light";
+
   return (
     <ExcalidrawLazy
       initialData={initialData}
@@ -309,6 +391,35 @@ export function CanvasBridge({
       excalidrawAPI={onExcalidrawAPI}
       onPointerUp={onPointerUp}
       viewModeEnabled={viewMode}
-    />
+      theme={canvasTheme}
+      langCode="id-ID"
+      onLibraryChange={onLibraryChange}
+      onLinkOpen={onLinkOpen}
+      validateEmbeddable={validateEmbeddable}
+      UIOptions={{
+        canvasActions: {
+          loadScene: false,
+          saveToActiveFile: false,
+          toggleTheme: false,
+          export: false,
+        },
+      }}
+    >
+      <WelcomeScreen>
+        <WelcomeScreen.Center>
+          <WelcomeScreen.Center.Heading>
+            Petakan ide & catatan teknismu
+          </WelcomeScreen.Center.Heading>
+          <WelcomeScreen.Center.Menu>
+            <WelcomeScreen.Center.MenuItemHelp />
+          </WelcomeScreen.Center.Menu>
+        </WelcomeScreen.Center>
+      </WelcomeScreen>
+      <Footer>
+        <div className="flex items-center gap-2 rounded border border-foreground/20 bg-background/80 px-2 py-0.5 text-[11px] font-medium text-muted-foreground backdrop-blur-sm shadow-sm">
+          <span>Tip: Tekan <b>N</b> untuk node baru atau gunakan <b>Auto Add</b> di atas</span>
+        </div>
+      </Footer>
+    </ExcalidrawLazy>
   );
 }

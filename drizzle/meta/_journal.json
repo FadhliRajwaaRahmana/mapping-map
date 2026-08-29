@@ -22,6 +22,13 @@
       "when": 1787994589116,
       "tag": "0002_worried_xavin",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1788033679945,
+      "tag": "0003_exotic_midnight",
+      "breakpoints": true
     }
   ]
 }
