@@ -56,7 +56,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
           {mode === "register" && (
             <div className="space-y-1.5">
               <Label htmlFor="name">Nama</Label>
-              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required minLength={1} />
+              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
             </div>
           )}
           <div className="space-y-1.5">

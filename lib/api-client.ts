@@ -1,9 +1,16 @@
 export class ApiError extends Error {
   constructor(public status: number, public code: string, message: string) {
     super(message);
+    this.name = "ApiError";
   }
 }
 
+/**
+ * Fetch wrapper for the app's JSON API (envelope `{ data }` on success,
+ * `{ error, message }` on failure).
+ * @remarks `init.headers` (if any) must be a plain `Record<string,string>`,
+ * not a `Headers` instance — the merge below spreads it.
+ */
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     credentials: "include",
@@ -22,7 +29,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     }
     throw new ApiError(res.status, code, message);
   }
-  const json = (await res.json()) as { data: T };
+  let json: { data: T };
+  try {
+    json = (await res.json()) as { data: T };
+  } catch {
+    throw new ApiError(res.status, "bad_response", `Respons tidak JSON (status ${res.status})`);
+  }
   return json.data;
 }
 
