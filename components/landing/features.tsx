@@ -12,6 +12,7 @@ const FEATURES = [
 export function Features() {
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-20">
+      <h2 className="sr-only">Fitur Mapping</h2>
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {FEATURES.map((f) => (
           <Card key={f.title}>

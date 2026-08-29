@@ -11,7 +11,8 @@ export function DemoCanvas() {
   return (
     <div className="relative mx-auto w-full max-w-2xl overflow-hidden rounded-2xl border bg-white/5 shadow-xl dark:bg-black/40">
       <svg viewBox="0 0 480 340" className="h-auto w-full" role="img" aria-label="Demo mind map">
-        {/* connecting arrows */}
+        {/* connecting arrows — dashed; fade in (framer-motion's pathLength draw-in
+            takes over stroke-dasharray, so the two effects are mutually exclusive) */}
         <motion.path
           d="M 205 108 Q 270 130 320 180"
           fill="none"
@@ -19,9 +20,9 @@ export function DemoCanvas() {
           strokeWidth="2"
           strokeDasharray="6"
           className="text-primary/60"
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{ duration: 1.2, ease: "easeInOut" }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.8, delay: 0.2 }}
         />
         <motion.path
           d="M 170 108 Q 120 180 165 240"
@@ -30,9 +31,9 @@ export function DemoCanvas() {
           strokeWidth="2"
           strokeDasharray="6"
           className="text-primary/60"
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{ duration: 1.2, delay: 0.4, ease: "easeInOut" }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.8, delay: 0.6 }}
         />
         {nodes.map((n, i) => (
           <motion.g key={n.label} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 * i, duration: 0.4 }}>
