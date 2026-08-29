@@ -176,7 +176,7 @@ export function CanvasBridge({
                   [0, 0],
                   [x - (target.x + target.width), y + 40 - (target.y + target.height / 2)],
                 ],
-                startBinding: { elementId: targetElementId, focus: 0, gap: 8 },
+                startBinding: { elementId: targetElementId, focus: 0, gap: 8, fixedPoint: null },
                 endBinding: null,
               } as unknown as Record<string, unknown>);
             }
@@ -191,20 +191,28 @@ export function CanvasBridge({
               elementId: newNode.id as string,
               focus: 0,
               gap: 8,
+              fixedPoint: null,
             };
             (arrow as Record<string, unknown>).startBinding = {
               elementId: targetElementId,
               focus: 0,
               gap: 8,
+              fixedPoint: null,
             };
-            // preserve label explicitly before binding mutation
-            const origLabel = (newNode as Record<string, unknown>).label;
+            // Preserve label explicitly before binding mutation
+            // (binding patch must not drop label — was causing empty text)
+            const origLabel = (newNode as Record<string, unknown>).label as Record<string, unknown> | undefined;
             const newNodeBound = [
               ...(((newNode.boundElements as unknown[]) ?? []) as unknown[]),
               { id: arrow.id as string, type: "arrow" },
             ] as unknown[];
             (newNode as Record<string, unknown>).boundElements = newNodeBound;
-            if (origLabel) (newNode as Record<string, unknown>).label = origLabel;
+            // Restore label if it was dropped by mutation, with safe defaults
+            if (origLabel) {
+              (newNode as Record<string, unknown>).label = origLabel;
+            } else if (title) {
+              (newNode as Record<string, unknown>).label = { text: title, fontSize: 16, fontFamily: 1 };
+            }
             const existing = a.getSceneElements() as unknown as Record<string, unknown>[];
             const arrowId = arrow.id as string;
             const patchedExisting = existing.map((el) => {
