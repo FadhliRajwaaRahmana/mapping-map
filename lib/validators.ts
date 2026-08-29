@@ -34,3 +34,9 @@ export const inviteSchema = z.object({
 export const roleSchema = z.object({
   role: z.enum(["editor", "viewer"]),
 });
+
+export const createNodeFullSchema = z.object({
+  id: z.string().uuid(),
+  elementId: z.string().trim().min(1).max(100),
+  title: z.string().trim().min(1).max(300).default("Tanpa judul"),
+});
