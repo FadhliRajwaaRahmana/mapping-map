@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { maps, mapState } from "@/lib/schema";
-import { requireMapRole } from "@/lib/guards";
+import { requireMapAccess, requireMapRole } from "@/lib/guards";
 import { MAX_BODY_BYTES, saveStateSchema } from "@/lib/validators";
 import {
   parseScene,
@@ -18,7 +18,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const res = await requireMapRole(id, "viewer");
+  const res = await requireMapAccess(id, "viewer");
   if (!res.ok) return Response.json(res.body, { status: res.status });
 
   const rows = await db
@@ -50,7 +50,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const res = await requireMapRole(id, "editor");
+  const res = await requireMapAccess(id, "editor");
   if (!res.ok) return Response.json(res.body, { status: res.status });
 
   const raw = await request.text();

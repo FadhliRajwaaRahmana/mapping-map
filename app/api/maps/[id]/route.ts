@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { maps, mapState, mapNodes, mapFiles, presence, mapCollaborators, user as userTable } from "@/lib/schema";
-import { requireMapRole } from "@/lib/guards";
+import { requireMapRole, requireMapAccess } from "@/lib/guards";
 import { renameMapSchema } from "@/lib/validators";
 import { eq, inArray } from "drizzle-orm";
 
@@ -15,7 +15,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const res = await requireMapRole(id, "viewer");
+  const res = await requireMapAccess(id, "viewer");
   if (!res.ok) return Response.json(res.body, { status: res.status });
   const mapRows = await db.select().from(maps).where(eq(maps.id, id)).limit(1);
   const map = mapRows[0];
