@@ -23,23 +23,39 @@ export function AutoAddPanel({ nodes, onAdd, canEdit, sceneElements }: Props) {
   const [shape, setShape] = useState<Shape>("rectangle");
   const [open, setOpen] = useState(false);
 
-  // Only show nodes whose box is actually live on canvas.
-  // If sceneElements available, dropdown follows canvas truth (fixes: deleted box still in dropdown).
+  // Derive dropdown strictly from live non-deleted canvas shapes
   const visibleNodes = useMemo(() => {
-    if (!sceneElements || sceneElements.length === 0) return nodes;
-    const liveIds = new Set(
-      (sceneElements as unknown as { id: string; isDeleted?: boolean; type?: string; customData?: { nodeId?: string } }[])
-        .filter((e) => !e.isDeleted && (e.type === "rectangle" || e.type === "ellipse" || e.type === "diamond"))
-        .map((e) => e.id),
-    );
-    const live = nodes.filter((n) => liveIds.has(n.elementId));
-    if (live.length === 0 && nodes.length > 0) return nodes;
-    return live;
+    // If sceneElements is defined (even if empty), only show nodes whose elementId is actually live on canvas
+    if (sceneElements) {
+      const liveElementsMap = new Map(
+        (
+          sceneElements as unknown as {
+            id: string;
+            isDeleted?: boolean;
+            type?: string;
+            customData?: { nodeId?: string };
+          }[]
+        )
+          .filter(
+            (e) =>
+              !e.isDeleted &&
+              (e.type === "rectangle" || e.type === "ellipse" || e.type === "diamond"),
+          )
+          .map((e) => [e.id, e]),
+      );
+
+      // Filter nodes to only those that exist in the live scene
+      return nodes.filter((n) => liveElementsMap.has(n.elementId));
+    }
+
+    return [];
   }, [nodes, sceneElements]);
 
   // Clear stale target when its box was deleted
   useEffect(() => {
-    if (target && !visibleNodes.some((n) => n.elementId === target)) setTarget("");
+    if (target && !visibleNodes.some((n) => n.elementId === target)) {
+      setTarget("");
+    }
   }, [visibleNodes, target]);
 
   function submit() {

@@ -58,7 +58,20 @@ export function EditorClient({
 }: Props) {
   const handleRef = useRef<CanvasHandle | null>(null);
   const [openNodeId, setOpenNodeId] = useState<string | null>(null);
-  const [nodes, setNodes] = useState<NodeRow[]>(initialNodes);
+
+  // Filter initial nodes so only those whose element exists in initialScene are shown
+  const [nodes, setNodes] = useState<NodeRow[]>(() => {
+    if (!initialScene?.elements || initialScene.elements.length === 0) {
+      return [];
+    }
+    const liveElementIds = new Set(
+      (initialScene.elements as unknown as { id: string; isDeleted?: boolean }[])
+        .filter((e) => !e.isDeleted)
+        .map((e) => e.id),
+    );
+    return initialNodes.filter((n) => liveElementIds.has(n.elementId));
+  });
+
   const [sceneElements, setSceneElements] = useState<readonly OrderedExcalidrawElement[]>(() => {
     const initEls = (initialScene?.elements ?? []) as unknown as readonly OrderedExcalidrawElement[];
     return initEls;
@@ -119,6 +132,15 @@ export function EditorClient({
   const onSceneChange = useCallback(
     (snap: SceneSnapshot) => {
       setSceneElements(snap.elements);
+
+      // Prune any nodes whose canvas element is now deleted
+      const liveElementIds = new Set(
+        (snap.elements as unknown as { id: string; isDeleted?: boolean }[])
+          .filter((e) => !e.isDeleted)
+          .map((e) => e.id),
+      );
+      setNodes((prev) => prev.filter((n) => liveElementIds.has(n.elementId)));
+
       if (!canEdit) return;
       if (skipSaveRef.current) {
         skipSaveRef.current = false;
@@ -150,7 +172,15 @@ export function EditorClient({
           // keep dropdown in sync with remote scene
           try {
             const snap = handleRef.current?.getSnapshot();
-            if (snap) setSceneElements(snap.elements as unknown as readonly OrderedExcalidrawElement[]);
+            if (snap) {
+              setSceneElements(snap.elements as unknown as readonly OrderedExcalidrawElement[]);
+              const liveIds = new Set(
+                (snap.elements as unknown as { id: string; isDeleted?: boolean }[])
+                  .filter((e) => !e.isDeleted)
+                  .map((e) => e.id),
+              );
+              setNodes((prev) => prev.filter((n) => liveIds.has(n.elementId)));
+            }
           } catch {}
         }
       } catch {
