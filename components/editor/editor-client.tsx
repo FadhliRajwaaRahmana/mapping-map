@@ -15,6 +15,7 @@ import { toScenePayload } from "@/lib/scene-client";
 import { api, ApiError, requestWithHeaders } from "@/lib/api-client";
 import { useCreateNodeKeybinding } from "@/lib/hooks/use-create-node-keybinding";
 import { NodePanel } from "./node-panel";
+import { ShareDialog } from "@/components/maps/share-dialog";
 
 export type NodeRow = {
   id: string;
@@ -223,6 +224,7 @@ export function EditorClient({
               Node
             </Button>
           )}
+          {role === "owner" && <ShareDialog mapId={mapId} />}
           <span className="text-xs text-muted-foreground">
             {syncStatus === "saving"
               ? "Menyimpan…"
