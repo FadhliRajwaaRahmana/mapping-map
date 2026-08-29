@@ -244,7 +244,6 @@ export function EditorClient({
     if (!handle) { toast.error("Canvas belum siap"); return; }
     const created = handle.addAutoNode(raw, targetElementId, shape);
     if (!created) { toast.error("Gagal menambah node di canvas"); return; }
-    if (!created) return;
     try {
       const node = await api.post<NodeRow>(`/api/maps/${mapId}/nodes`, {
         id: created.nodeId,
