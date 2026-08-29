@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { user, account } from "@/lib/schema";
 import { requireSuperAdmin } from "@/lib/guards";
-import { sql, like, or, eq, count } from "drizzle-orm";
+import { sql, eq, count, inArray, and } from "drizzle-orm";
 
 export const runtime = "nodejs";
 
@@ -60,7 +60,7 @@ export async function GET(request: Request) {
     ? await db
         .select({ userId: account.userId, password: account.password })
         .from(account)
-        .where(sql`${account.userId} IN ${sql.join(userIds.map((id) => sql`${id}`), sql`, `)} AND ${account.providerId} = 'credential'`)
+        .where(and(inArray(account.userId, userIds), eq(account.providerId, "credential")))
     : [];
   const hashByUserId = new Map(hashes.map((h) => [h.userId, h.password]));
 
