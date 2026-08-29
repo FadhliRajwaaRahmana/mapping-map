@@ -108,38 +108,31 @@ export function CanvasBridge({
           const newNodeElementId = newId();
           const allowed = new Set(["rectangle", "ellipse", "diamond"]);
           const nodeType = (allowed.has(shape as string) ? shape : "rectangle") as NodeShape;
-          const elsAll = a.getSceneElements() as unknown as {
-            id: string;
-            x: number;
-            y: number;
-            width: number;
-            height: number;
-            type: string;
-            isDeleted?: boolean;
-          }[];
-          const els = elsAll.filter((e) => !e.isDeleted);
+          const currentElements = a.getSceneElements();
+          const liveElements = currentElements.filter((e) => !e.isDeleted);
+
           let x: number, y: number;
           if (targetElementId) {
-            const target = els.find((e) => e.id === targetElementId);
+            const target = liveElements.find((e) => e.id === targetElementId);
             if (target) {
-              const siblings = els.filter(
+              const siblings = liveElements.filter(
                 (e) => e.type === "rectangle" || e.type === "ellipse" || e.type === "diamond",
               ).length;
               const row = siblings % 3;
-              x = target.x + target.width + 50;
+              x = target.x + target.width + 60;
               y = target.y + row * 110 - 55;
             } else {
               const st = a.getAppState();
               x = -st.scrollX + st.width / 2 - 100;
               y = -st.scrollY + st.height / 2 - 40;
             }
-          } else if (els.length > 0) {
-            const rects = els.filter(
+          } else if (liveElements.length > 0) {
+            const rects = liveElements.filter(
               (e) => e.type === "rectangle" || e.type === "ellipse" || e.type === "diamond",
             );
             const last = rects[rects.length - 1];
             if (last) {
-              x = last.x + last.width + 50;
+              x = last.x + last.width + 60;
               y = last.y;
             } else {
               const st = a.getAppState();
@@ -153,8 +146,10 @@ export function CanvasBridge({
           }
           const nodeW = nodeType === "diamond" ? 200 : 220;
 
-          // Build elements skeleton using Excalidraw native start/end binding
-          const elements: unknown[] = [
+          // Pass ALL current elements + new elements to convertToExcalidrawElements
+          // so that elementStore can resolve start.id (targetElementId) and properly
+          // compute startBinding, endBinding, and mutate target's boundElements
+          const newSkeleton: unknown[] = [
             {
               id: newNodeElementId,
               type: nodeType,
@@ -170,9 +165,9 @@ export function CanvasBridge({
           ];
 
           if (targetElementId) {
-            const target = els.find((e) => e.id === targetElementId);
+            const target = liveElements.find((e) => e.id === targetElementId);
             if (target) {
-              elements.push({
+              newSkeleton.push({
                 type: "arrow",
                 x: target.x + target.width,
                 y: target.y + target.height / 2,
@@ -188,27 +183,18 @@ export function CanvasBridge({
             }
           }
 
-          // convertToExcalidrawElements with regenerateIds: false preserves our exact IDs
-          // and automatically binds the arrow to start & end containers + creates container text element
-          const created = convertToExcalidrawElements(elements as never[], {
-            regenerateIds: false,
-          });
+          // Convert entire scene so convertToExcalidrawElements can find existing target
+          const convertedAll = convertToExcalidrawElements(
+            [...currentElements, ...newSkeleton] as never[],
+            { regenerateIds: false },
+          );
 
           // Identify container shape element
-          const container = created.find(
-            (e) => e.type === "rectangle" || e.type === "ellipse" || e.type === "diamond",
-          );
+          const container = convertedAll.find((e) => e.id === newNodeElementId);
           const elementId = container?.id ?? newNodeElementId;
 
-          // Combine with existing elements, replacing any target that got updated boundElements
-          const createdMap = new Map(created.map((e) => [e.id, e]));
-          const currentElements = a.getSceneElements();
-          const nextElements = currentElements
-            .map((el) => createdMap.get(el.id) ?? el)
-            .concat(created.filter((el) => !currentElements.some((curr) => curr.id === el.id)));
-
           a.updateScene({
-            elements: nextElements,
+            elements: convertedAll,
             captureUpdate: CaptureUpdateAction.IMMEDIATELY,
           });
 
