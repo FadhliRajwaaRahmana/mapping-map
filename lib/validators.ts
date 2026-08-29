@@ -41,10 +41,22 @@ export const createNodeFullSchema = z.object({
   title: z.string().trim().min(1).max(300).default("Tanpa judul"),
 });
 
-
 export const visibilitySchema = z.object({
   visibility: z.enum(["private", "public"]),
   publicRole: z.enum(["viewer", "editor"]).optional(),
+});
+
+export const banSchema = z.object({
+  banned: z.boolean(),
+  banReason: z.string().trim().max(500).optional(),
+});
+
+export const resetPasswordSchema = z.object({
+  newPassword: z.string().min(8).max(128),
+});
+
+export const updateRoleSchema = z.object({
+  role: z.enum(["user", "superadmin"]),
 });
 
 export const MAX_BODY_BYTES = 4 * 1024 * 1024;

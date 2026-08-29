@@ -33,7 +33,7 @@ export function LandingFooter() {
             <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
               <button onClick={() => document.querySelector("#features")?.scrollIntoView({ behavior: "smooth" })} className="text-left hover:text-foreground">Fitur</button>
               <button onClick={() => document.querySelector("#how-it-works")?.scrollIntoView({ behavior: "smooth" })} className="text-left hover:text-foreground">Cara Kerja</button>
-              <button onClick={() => document.querySelector("#pricing")?.scrollIntoView({ behavior: "smooth" })} className="text-left hover:text-foreground">Harga</button>
+              <button onClick={() => document.querySelector("#open-source")?.scrollIntoView({ behavior: "smooth" })} className="text-left hover:text-foreground">Open Source</button>
             </nav>
           </div>
           <div>

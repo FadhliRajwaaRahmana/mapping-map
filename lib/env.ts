@@ -4,6 +4,7 @@ type Env = {
   AUTH_SECRET: string;
   NEXT_PUBLIC_APP_URL: string;
   RESEND_API_KEY?: string;
+  SUPERADMIN_EMAIL?: string;
 };
 
 function readEnv(): Env {
@@ -21,6 +22,7 @@ function readEnv(): Env {
     AUTH_SECRET: process.env.AUTH_SECRET || "",
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
     RESEND_API_KEY: process.env.RESEND_API_KEY,
+    SUPERADMIN_EMAIL: process.env.SUPERADMIN_EMAIL || undefined,
   };
 }
 

@@ -7,7 +7,7 @@ const NAV_LINKS = [
   { href: "#features", label: "Fitur" },
   { href: "#how-it-works", label: "Cara Kerja" },
   { href: "#testimonials", label: "Testimoni" },
-  { href: "#pricing", label: "Harga" },
+  { href: "#open-source", label: "Open Source" },
 ];
 
 const MOBILE_TABS = [
@@ -43,12 +43,12 @@ const MOBILE_TABS = [
     ),
   },
   {
-    href: "#pricing",
-    label: "Harga",
+    href: "#open-source",
+    label: "Open",
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="12" x2="12" y1="2" y2="22" />
-        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+        <path d="M15 22v-3a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 4 5 4 5 4c-.28 1.15-.28 2.35 0 3.5A2.93 2.93 0 0 0 4 11c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.2 1.23-.1 1.85v3" />
+        <path d="M9 18c-4.51 2-5-2-7-2" />
       </svg>
     ),
   },
@@ -83,7 +83,7 @@ export function Navbar() {
   }, []);
 
   useEffect(() => {
-    const sections = ["#hero", "#features", "#how-it-works", "#demo", "#testimonials", "#pricing", "#faq"];
+    const sections = ["#hero", "#features", "#how-it-works", "#demo", "#testimonials", "#open-source", "#faq"];
     const obs = new IntersectionObserver(
       (entries) => {
         for (const e of entries) if (e.isIntersecting) setActive(`#${e.target.id}`);

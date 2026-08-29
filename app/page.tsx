@@ -5,7 +5,7 @@ import { Features } from "@/components/landing/features";
 import { HowItWorks } from "@/components/landing/how-it-works";
 import { DemoSection } from "@/components/landing/demo-section";
 import { Testimonials } from "@/components/landing/testimonials";
-import { Pricing } from "@/components/landing/pricing";
+import { OpenSource } from "@/components/landing/open-source";
 import { Faq } from "@/components/landing/faq";
 import { FinalCta } from "@/components/landing/final-cta";
 import { LandingFooter } from "@/components/landing/landing-footer";
@@ -21,7 +21,7 @@ export default function LandingPage() {
         <HowItWorks />
         <DemoSection />
         <Testimonials />
-        <Pricing />
+        <OpenSource />
         <Faq />
         <FinalCta />
         <LandingFooter />
