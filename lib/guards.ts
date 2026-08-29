@@ -18,7 +18,7 @@ export async function requireUser(): Promise<SessionUser | null> {
 }
 
 export type MapRole = "owner" | "editor" | "viewer";
-export const ROLE_RANK: Record<MapRole, number> = { viewer: 1, editor: 2, owner: 3 };
+const ROLE_RANK: Record<MapRole, number> = { viewer: 1, editor: 2, owner: 3 };
 
 export type RoleCheck =
   | { ok: true; user: SessionUser; role: MapRole }
@@ -42,9 +42,12 @@ export async function requireMapRole(mapId: string, minRole: MapRole): Promise<R
     .from(mapCollaborators)
     .where(and(eq(mapCollaborators.mapId, mapId), eq(mapCollaborators.userId, user.id)))
     .limit(1);
-  const role = (rows[0]?.role as MapRole | undefined) ?? "viewer";
-  if (ROLE_RANK[role] < ROLE_RANK[minRole]) {
+  const row = rows[0];
+  // No collaborator row => not a member of this map => deny. (The owner always
+  // has a row, so this never affects the owner. Falling back to "viewer" here
+  // would let any logged-in stranger read any map — IDOR.)
+  if (!row || ROLE_RANK[row.role] < ROLE_RANK[minRole]) {
     return { ok: false, status: 403, body: { error: "forbidden", message: "Anda tidak punya akses." } };
   }
-  return { ok: true, user, role };
+  return { ok: true, user, role: row.role };
 }

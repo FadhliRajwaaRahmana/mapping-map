@@ -10,5 +10,9 @@ export default defineConfig({
     environment: "jsdom",
     include: ["tests/**/*.test.{ts,tsx}"],
     setupFiles: ["./vitest.setup.ts"],
+    // All test files share the single ./vitest.db file DB (created+migrated in
+    // vitest.setup.ts). Run files serially so a second worker can't rmSync the
+    // DB out from under the first. Suite is small — parallelism buys nothing.
+    fileParallelism: false,
   },
 });

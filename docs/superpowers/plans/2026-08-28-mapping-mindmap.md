@@ -223,8 +223,12 @@ export default defineConfig({
   resolve: { alias: { "@": rootDir } },
   test: {
     environment: "jsdom",
-    include: ["tests/**/*.test.ts"],
+    include: ["tests/**/*.test.{ts,tsx}"],
     setupFiles: ["./vitest.setup.ts"],
+    // All test files share the single ./vitest.db file DB (created+migrated in
+    // vitest.setup.ts). Run files serially so a second worker can't rmSync the
+    // DB out from under the first. Suite is small — parallelism buys nothing.
+    fileParallelism: false,
   },
 });
 ```
@@ -586,7 +590,9 @@ import { auth } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
-export const { GET, POST } = toNextJsHandler(auth);
+// Export all five handlers: better-auth 1.7.2 core only uses GET/POST, but a
+// future plugin could add PUT/PATCH/DELETE — this prevents a silent 405.
+export const { GET, POST, PATCH, PUT, DELETE } = toNextJsHandler(auth);
 ```
 
 - [ ] **Step 3: Create `lib/guards.ts` (requireUser first)**
@@ -612,7 +618,7 @@ export async function requireUser(): Promise<SessionUser | null> {
 }
 
 export type MapRole = "owner" | "editor" | "viewer";
-export const ROLE_RANK: Record<MapRole, number> = { viewer: 1, editor: 2, owner: 3 };
+const ROLE_RANK: Record<MapRole, number> = { viewer: 1, editor: 2, owner: 3 };
 
 export type RoleCheck =
   | { ok: true; user: SessionUser; role: MapRole }
@@ -636,11 +642,14 @@ export async function requireMapRole(mapId: string, minRole: MapRole): Promise<R
     .from(mapCollaborators)
     .where(and(eq(mapCollaborators.mapId, mapId), eq(mapCollaborators.userId, user.id)))
     .limit(1);
-  const role = (rows[0]?.role as MapRole | undefined) ?? "viewer";
-  if (ROLE_RANK[role] < ROLE_RANK[minRole]) {
+  const row = rows[0];
+  // No collaborator row => not a member of this map => deny. (The owner always
+  // has a row, so this never affects the owner. Falling back to "viewer" here
+  // would let any logged-in stranger read any map — IDOR.)
+  if (!row || ROLE_RANK[row.role] < ROLE_RANK[minRole]) {
     return { ok: false, status: 403, body: { error: "forbidden", message: "Anda tidak punya akses." } };
   }
-  return { ok: true, user, role };
+  return { ok: true, user, role: row.role };
 }
 ```
 
@@ -1079,7 +1088,10 @@ export function DemoCanvas() {
 
 - [ ] **Step 3: Create `components/landing/hero.tsx`**
 
+> `"use client"` is REQUIRED here (it uses `motion` directly; without it Next build fails with a server-component error).
 ```tsx
+"use client";
+
 import { motion } from "framer-motion";
 import { Link } from "next/link";
 import { Button } from "@/components/ui/button";
@@ -1161,8 +1173,6 @@ git commit -m "feat: landing page (hero, animated demo canvas, features, footer)
 ```
 
 ---
-
-> **Precedence note:** If this plan and `docs/superpowers/plans/_shared-contract.md` differ, THIS PLAN wins (the contract was a drafting aid; the plan encodes the final, verified decisions — e.g. image flow via dirty-files in `POST /state`, and `GET`-only files routes).
 
 ### Task 6: Maps API (list / create / one / rename / delete) + validators
 
