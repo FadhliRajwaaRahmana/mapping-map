@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import Lenis from "lenis";
 
 /**
@@ -9,9 +10,12 @@ import Lenis from "lenis";
  * Only activates on pages with scroll (not full-screen editor).
  */
 export function LenisProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isAdmin = pathname?.startsWith("/admin");
   const lenisRef = useRef<Lenis | null>(null);
 
   useEffect(() => {
+    if (isAdmin) return;
     const lenis = new Lenis({
       lerp: 0.1,
       smoothWheel: true,
@@ -28,7 +32,7 @@ export function LenisProvider({ children }: { children: React.ReactNode }) {
       lenis.destroy();
       lenisRef.current = null;
     };
-  }, []);
+  }, [isAdmin]);
 
   return <>{children}</>;
 }

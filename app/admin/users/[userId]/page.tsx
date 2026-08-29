@@ -39,7 +39,7 @@ export default async function AdminUserDetail({ params }: { params: Promise<{ us
       {/* Header */}
       <div className="flex flex-col gap-4 rounded-lg border-2 border-foreground bg-card p-6 shadow-brutal sm:flex-row sm:items-center">
         <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-2 border-foreground bg-primary font-heading text-2xl font-black text-primary-foreground shadow-brutal-sm">
-          {u.name.slice(0, 1).toUpperCase()}
+          {(u.name ?? "?").slice(0, 1).toUpperCase()}
         </div>
         <div className="min-w-0 flex-1">
           <h1 className="font-heading text-xl font-bold">{u.name}</h1>
