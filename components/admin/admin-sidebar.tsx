@@ -34,15 +34,33 @@ export function AdminSidebar({ userName, userEmail }: { userName: string; userEm
         <p className="mt-1 px-3 text-sm font-semibold">{userName}</p>
         <p className="px-3 text-xs text-muted-foreground">{userEmail}</p>
       </div>
+      <div className="mt-4 flex flex-col gap-2">
+        <Link
+          href="/maps"
+          onClick={() => setOpen(false)}
+          className="flex items-center justify-center gap-1.5 rounded-lg border-2 border-foreground bg-card px-3 py-2 text-sm font-bold shadow-brutal-sm"
+        >
+          ← Kembali ke App
+        </Link>
+        <button
+          onClick={async () => {
+            await fetch("/api/auth/sign-out", { method: "POST", credentials: "include" });
+            window.location.href = "/login";
+          }}
+          className="flex items-center justify-center gap-1.5 rounded-lg border-2 border-destructive bg-destructive px-3 py-2 text-sm font-bold text-destructive-foreground shadow-brutal-sm"
+        >
+          Keluar
+        </button>
+      </div>
     </nav>
   );
 
   return (
     <>
-      {/* Mobile hamburger */}
+      {/* Mobile hamburger — positioned below admin topbar (top-14) so it doesn't overlap */}
       <button
         onClick={() => setOpen(!open)}
-        className="fixed left-2 top-2 z-50 flex h-9 w-9 items-center justify-center rounded-lg border-2 border-foreground bg-card shadow-brutal-sm md:hidden"
+        className="fixed left-3 top-[3.75rem] z-50 flex h-9 w-9 items-center justify-center rounded-lg border-2 border-foreground bg-card shadow-brutal-sm md:hidden"
         aria-label="Toggle menu"
       >
         <span className="text-lg">{open ? "✕" : "☰"}</span>
@@ -56,6 +74,7 @@ export function AdminSidebar({ userName, userEmail }: { userName: string; userEm
             <div className="flex h-14 items-center gap-2 border-b-2 border-foreground px-4">
               <div className="flex h-7 w-7 items-center justify-center rounded-md border-2 border-foreground bg-primary text-xs font-bold text-primary-foreground">M</div>
               <span className="font-heading text-sm font-bold">Admin Panel</span>
+              <button onClick={() => setOpen(false)} className="ml-auto rounded-md p-1 hover:bg-muted">✕</button>
             </div>
             {navContent}
           </div>
