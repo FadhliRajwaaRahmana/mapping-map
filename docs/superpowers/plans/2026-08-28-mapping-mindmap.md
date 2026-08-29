@@ -20,7 +20,9 @@
 - Dynamic routes await `params` (Next 15/16): `const { id } = await params;`.
 - DB-using routes export `export const runtime = "nodejs";` (libsql client is Node-only).
 - JSON responses: success = `2xx { data }`; error = status + `{ error: <code>, message }`. Error codes: `unauthorized`(401) `forbidden`(403) `not_found`(404) `validation`(400) `conflict`(409) `too_large`(413) `internal`(500).
-- IDs via `newId()` (uuid), timestamps `Date.now()` (ms).
+- IDs via `newId()` (uuid). **DB timestamp columns are `timestamp_ms` (Date-based): use `new Date()`, NOT `Date.now()`.** Drizzle calls `value.getTime()` on write, so an epoch-ms number crashes at runtime (`value.getTime is not a function`). `Date.now()` is fine ONLY for building unique strings (test emails, etc.), never for a `timestamp_ms` field.
+- **Zod 4** is pinned: `z.record()` requires BOTH key and value types — write `z.record(z.string(), z.unknown())`, not the 1-arg `z.record(z.unknown())`.
+- **Direct-invocation route tests** (calling a handler function from vitest, not through the Next server): `requireUser()` calls `next/headers`'s `headers()`, which throws "outside a request scope" without the Next request scope. `tests/integration/api.test.ts` already solves this with a `vi.mock("next/headers")` + a `use(req)` wrapper that binds the incoming `Request`'s headers — **every new direct-invocation test MUST wrap its `Request` in `use(...)`**. Production code (guards/routes) is untouched by this.
 - Conventional commits, one per task (or per logical step group).
 - `.env` never committed; only `.env.example`.
 
@@ -1197,7 +1199,7 @@ export const renameMapSchema = z.object({
 });
 
 export const saveStateSchema = z.object({
-  scene: z.record(z.unknown()),
+  scene: z.record(z.string(), z.unknown()),
   baseRevision: z.number().int().min(0),
 });
 
@@ -1320,7 +1322,8 @@ export async function POST(request: Request) {
     return jsonError(400, "validation", parsed.error.issues[0]?.message ?? "Data tidak valid.");
   }
   const id = newId();
-  const now = Date.now();
+  // timestamp_ms columns are Date-based (drizzle calls value.getTime() on write)
+  const now = new Date();
   await db.transaction(async (tx) => {
     await tx.insert(maps).values({
       id,
@@ -1418,7 +1421,7 @@ export async function PATCH(
   if (!parsed.success) {
     return jsonError(400, "validation", parsed.error.issues[0]?.message ?? "Data tidak valid.");
   }
-  const values: Record<string, unknown> = { updatedAt: Date.now() };
+  const values: Record<string, unknown> = { updatedAt: new Date() };
   if (parsed.data.title !== undefined) values.title = parsed.data.title;
   if (parsed.data.description !== undefined) values.description = parsed.data.description;
   if (parsed.data.isArchived !== undefined) values.isArchived = parsed.data.isArchived;
@@ -2436,7 +2439,7 @@ export async function POST(
       { status: 400 },
     );
   }
-  const now = Date.now();
+  const now = new Date();
   try {
     await db.insert(mapNodes).values({
       id: parsed.data.id,
@@ -2618,7 +2621,7 @@ export async function PATCH(request: Request, { params }: Ctx) {
       { status: 400 },
     );
   }
-  const values: Record<string, unknown> = { updatedAt: Date.now(), updatedBy: res.user.id };
+  const values: Record<string, unknown> = { updatedAt: new Date(), updatedBy: res.user.id };
   if (parsed.data.title !== undefined) values.title = parsed.data.title;
   if (parsed.data.contentMd !== undefined) values.contentMd = parsed.data.contentMd;
   const rows = await db.update(mapNodes).set(values).where(and(eq(mapNodes.mapId, id), eq(mapNodes.id, nodeId))).returning();
@@ -3035,7 +3038,7 @@ export async function POST(
   }
 
   const revision = (storedRows[0]?.revision ?? 0) + 1;
-  const now = Date.now();
+  const now = new Date();
   const json = JSON.stringify(finalScene);
   await db
     .insert(mapState)
@@ -3390,7 +3393,7 @@ export async function POST(
     mapId: id,
     userId: target.id,
     role: parsed.data.role,
-    createdAt: Date.now(),
+    createdAt: new Date(),
   });
   return Response.json(
     { data: { userId: target.id, email, role: parsed.data.role } },
@@ -3597,8 +3600,9 @@ async function activeRows(mapId: string) {
     .select({ userId: presence.userId, lastSeen: presence.lastSeen })
     .from(presence)
     .where(eq(presence.mapId, mapId));
-  const now = Date.now();
-  const active = rows.filter((r) => now - r.lastSeen < STALE_MS);
+  // timestamp_ms columns are Date-based on BOTH write and read
+  const now = new Date();
+  const active = rows.filter((r) => now.getTime() - r.lastSeen.getTime() < STALE_MS);
   if (active.length === 0) return [];
   const users = await db
     .select({ id: user.id, name: user.name })
@@ -3608,7 +3612,7 @@ async function activeRows(mapId: string) {
   return active.map((r) => ({
     userId: r.userId,
     name: byId.get(r.userId)?.name ?? "?",
-    lastSeen: r.lastSeen,
+    lastSeen: r.lastSeen.getTime(),
   }));
 }
 
@@ -3629,12 +3633,13 @@ export async function POST(
   const { id } = await params;
   const res = await requireMapRole(id, "viewer");
   if (!res.ok) return Response.json(res.body, { status: res.status });
+  const now = new Date();
   await db
     .insert(presence)
-    .values({ mapId: id, userId: res.user.id, lastSeen: Date.now() })
+    .values({ mapId: id, userId: res.user.id, lastSeen: now })
     .onConflictDoUpdate({
       target: [presence.mapId, presence.userId],
-      set: { lastSeen: Date.now() },
+      set: { lastSeen: now },
     });
   return Response.json({ data: await activeRows(id) });
 }
@@ -3869,7 +3874,7 @@ describe("nodes API + role enforcement", () => {
       mapId,
       userId: viewer.user.id,
       role: "viewer",
-      createdAt: Date.now(),
+      createdAt: new Date(),
     });
     // realistic session cookie for the viewer (1.7.2: asResponse + first Set-Cookie segment)
     const vSignIn = await auth.api.signInEmail({
