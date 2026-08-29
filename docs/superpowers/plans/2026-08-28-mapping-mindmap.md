@@ -683,23 +683,38 @@ Run:
 ```bash
 npm run test -- tests/integration/api.test.ts
 ```
-Expected: `1 passed`. (If it fails with "no such table", the migration from Task 2 wasn't applied to the DB the test uses — the test uses `file::memory:` from `vitest.setup.ts`, so ensure the schema is created in-memory. See Step 6.)
+Expected: `1 passed`. (If it fails with "no such table", the test DB wasn't migrated — see Step 6.)
 
-- [ ] **Step 6: Ensure in-memory test DB is migrated before tests run**
+- [ ] **Step 6: Deterministic test-DB migration (replace the WHOLE `vitest.setup.ts`)**
 
-Because the test uses `file::memory:` (fresh, empty) on every run, better-auth will fail with `no such table: user`. Add a migration bootstrap to `vitest.setup.ts` — append at the end:
+`file::memory:` in libSQL is per-connection — a second `createClient` (the one in `lib/db.ts`) would NOT see the tables, so the suite fails with "no such table". And a fire-and-forget `void (async () => migrate(...))()` is a RACE (tests can run before migration resolves → flaky). So use a **real temp file DB** that every connection in the process shares, migrated with a full top-level `await`:
+
 ```ts
-// Create tables in the in-memory DB used by tests.
-import { db } from "@/lib/db";
-import { migrate } from "drizzle-orm/libsql/migrator";
+// Test env: use a real temp file DB (shared across all test connections) so the
+// in-memory file::memory: per-connection isolation problem doesn't apply.
+import { rmSync } from "node:fs";
 
-void (async () => {
-  // For an in-memory file DB, run the generated SQL directly.
-  // (Simplest reliable path: apply each migration file's SQL.)
-  await migrate(db, { migrationsFolder: "./drizzle" });
-})();
+rmSync("./vitest.db", { force: true });
+
+// FORCE test isolation: never honor an externally-set DATABASE_URL (dev shell,
+// CI, leaked env) — otherwise migrations + test data would be written to the
+// real database. Tests always run against this throwaway file DB.
+process.env.DATABASE_URL = "file:./vitest.db";
+process.env.DATABASE_AUTH_TOKEN = "";
+process.env.AUTH_SECRET = process.env.AUTH_SECRET ?? "test-secret-test-secret-test-secret-0000";
+process.env.NEXT_PUBLIC_APP_URL ??= "http://localhost:3000";
+
+// Apply migrations to the test DB BEFORE any test or module import runs.
+// Deterministic (awaited) — no fire-and-forget, no flake.
+const { createClient } = await import("@libsql/client");
+const { drizzle } = await import("drizzle-orm/libsql");
+const { migrate } = await import("drizzle-orm/libsql/migrator");
+const client = createClient({ url: process.env.DATABASE_URL! });
+const testDb = drizzle(client);
+await migrate(testDb, { migrationsFolder: "./drizzle" });
+await client.close();
 ```
-> `migrate()` against `file::memory:` works because the migrator tracks `__drizzle_migrations` in the same in-memory instance for the test's lifetime. If `migrate` reports "no migrations folder found" due to cwd, run vitest from the project root (it is). Re-run Step 5 — now `1 passed`.
+> Why a temp file, not `file::memory:`: libSQL in-memory DBs are per-connection, so the app's own client (`lib/db.ts`) wouldn't share it. A real file DB is shared by every connection in the process. `rmSync` at the top gives a clean DB each run; `vitest.db` is gitignored via `*.db`. The `DATABASE_URL` is set UNCONDITIONALLY (not `??`) so a dev/CI env var can never redirect tests at the real database. Re-run Step 5 — now `1 passed` (run twice to confirm it's not flaky).
 
 - [ ] **Step 7: Commit**
 

@@ -4,8 +4,11 @@ import { rmSync } from "node:fs";
 
 rmSync("./vitest.db", { force: true });
 
-process.env.DATABASE_URL = process.env.DATABASE_URL ?? "file:./vitest.db";
-process.env.DATABASE_AUTH_TOKEN = process.env.DATABASE_AUTH_TOKEN ?? "";
+// FORCE test isolation: never honor an externally-set DATABASE_URL (dev shell,
+// CI, leaked env) — otherwise migrations + test data would be written to the
+// real database. Tests always run against this throwaway file DB.
+process.env.DATABASE_URL = "file:./vitest.db";
+process.env.DATABASE_AUTH_TOKEN = "";
 process.env.AUTH_SECRET = process.env.AUTH_SECRET ?? "test-secret-test-secret-test-secret-0000";
 process.env.NEXT_PUBLIC_APP_URL ??= "http://localhost:3000";
 
